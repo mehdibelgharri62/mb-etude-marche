@@ -262,8 +262,8 @@ async def submit_form(
         payment_method_types=["card"],
         line_items=[{"price": PRICE_ID, "quantity": 1}],
         mode="payment",
-        success_url=str(request.base_url) + "success",
-        cancel_url=str(request.base_url) + "cancel",
+        success_url="https://mb-etude-marche.onrender.com/success",
+cancel_url="https://mb-etude-marche.onrender.com/cancel",
         customer_email=email,
         metadata=metadata,
     )
