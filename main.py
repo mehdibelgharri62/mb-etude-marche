@@ -124,6 +124,7 @@ def generer_et_envoyer(form_data: dict):
                 Path(__file__).parent / "generate_content.py"
             )
             gc = importlib.util.module_from_spec(spec)
+            sys.modules["generate_content_tmp"] = gc
             spec.loader.exec_module(gc)
 
             # --- Injecter les données du formulaire dans PROJECT_INPUT ---
