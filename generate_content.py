@@ -457,6 +457,7 @@ RÈGLES ABSOLUES DE SORTIE :
 - N'utilise pas d'astérisques bruts pour simuler des puces.
 - N'utilise pas de tableaux pour tout : texte court + tableaux seulement quand ils clarifient une comparaison, une décision, une hypothèse, un risque ou une action.
 - Les signaux issus d'avis publics concurrents doivent être formulés prudemment : "certains avis consultables mentionnent", "signal faible", "signal récurrent apparent". Ne cite pas de longs verbatims.
+- Qualifie mieux les sources : utilise si possible des labels comme source institutionnelle, étude sectorielle, source professionnelle, analyse concurrentielle, sites concurrents, avis publics, Google/Maps/annuaires, données macro à vérifier, hypothèse de travail. Si le nom de l’organisme est disponible, cite-le brièvement (ex : INRS, DARES, Bpifrance, France Num, CCI, Xerfi, Wavestone, Google Maps).
 """.strip()
 
 SYSTEM_PROMPT = (
@@ -634,14 +635,14 @@ def build_search_prompts(project: Dict[str, Any], profile: Dict[str, Any]) -> Di
             base
             + "\nFais une recherche web concentrée, avec 2 à 4 requêtes maximum, pour évaluer la demande et les signaux de marché. "
             + "Axes prioritaires : " + join_or_none(demande_focus) + ". "
-            + "Retour attendu : 6 à 10 signaux utiles maximum, chacun avec source ou statut 'à vérifier terrain'. "
+            + "Retour attendu : 6 à 10 signaux utiles maximum, chacun avec un label de source qualifié (source institutionnelle, étude sectorielle, source professionnelle, avis publics, Google/Maps/annuaires, analyse concurrentielle) ou statut 'à vérifier terrain'. Nomme l'organisme si disponible. "
             + "Ne donne aucun chiffre précis sans source claire. Ne généralise pas une donnée nationale comme preuve locale."
         ),
         "concurrence": (
             base
             + "\nFais une recherche web concentrée, avec 3 à 5 requêtes maximum, pour identifier des concurrents nommés et exploitables. "
             + "Pour un projet local, privilégie Google/Maps/pages locales autour de la zone ; pour un projet digital, Google, marketplaces et acteurs spécialisés. "
-            + "Retour attendu : 5 à 8 concurrents nommés si possible, avec nom, localisation/canal, offre, positionnement, prix si trouvé, signaux d'avis clients et source. "
+            + "Retour attendu : 5 à 8 concurrents nommés si possible, avec nom, localisation/canal, offre, positionnement, prix si trouvé, signaux d'avis clients et source qualifiée (site concurrent, avis publics, Google/Maps/annuaires, source professionnelle). "
             + "Si les avis clients sont peu nombreux, indique 'signal faible'. N'invente pas de notes, nombres d'avis, verbatims ou prix. "
             + "N'écris jamais que les concurrents n'ont pas été fournis par le client : ton rôle est de les rechercher. Si aucun concurrent fiable n'est trouvé, dis-le clairement."
         ),
@@ -651,7 +652,7 @@ def build_search_prompts(project: Dict[str, Any], profile: Dict[str, Any]) -> Di
         prompts["prix_contraintes"] = (
             base
             + "\nFais une recherche web courte, avec 1 à 3 requêtes maximum, sur les repères utiles de prix, coûts, réglementation ou contraintes pratiques. "
-            + "Retour attendu : uniquement les éléments qui changent les hypothèses, les risques ou le plan d'action, avec source-label ou statut de preuve. "
+            + "Retour attendu : uniquement les éléments qui changent les hypothèses, les risques ou le plan d'action, avec source-label qualifié ou statut de preuve. Évite la formule vague 'source web trouvée' seule. "
             + "Tout élément incertain doit être marqué 'à vérifier'."
         )
     if RESEARCH_MODE == "premium":
@@ -763,9 +764,10 @@ SECTIONS: List[Section] = [
         Blocs obligatoires :
         1) ## Pourquoi ces tendances comptent : 5 lignes maximum.
         2) 3 sous-blocs texte courts : tendance principale 1, tendance principale 2, tendance principale 3.
-        3) Tableau obligatoire : Tendance | Ce que ça permet | Ce que ça ne prouve pas. 5 lignes maximum.
-        4) ## Prudence sur les chiffres : 4 lignes maximum.
-        Toute statistique non sourcée dans le contexte doit être labellisée hypothèse à vérifier.
+        3) ## Repères chiffrés à rechercher / à valider : 2 à 4 lignes maximum, uniquement avec des chiffres présents dans le contexte de recherche. Si aucun chiffre fiable n'est disponible, écris clairement qu'aucun repère chiffré suffisamment fiable n'a été retenu automatiquement.
+        4) Tableau obligatoire : Tendance | Ce que ça permet | Ce que ça ne prouve pas. 5 lignes maximum.
+        5) ## Prudence sur les chiffres : 4 lignes maximum, avec cette idée : ces chiffres sont des repères macro, pas une preuve directe du potentiel commercial du projet, et doivent être vérifiés sur le segment ciblé.
+        Toute statistique non sourcée dans le contexte doit être labellisée hypothèse à vérifier. Évite les formulations vagues sans donnée quand le contexte fournit un chiffre exploitable.
         Contexte recherche : {contexte}
         """,
     ),
@@ -886,7 +888,7 @@ SECTIONS: List[Section] = [
         5) Si digital_acquisition : inclure CAC, taux de conversion et panier moyen en cohérence avec section 3.
         6) Si stock_matiere : inclure marge brute, rotation de stock et stock dormant.
         7) Si service_humain : inclure taux d'occupation, temps vendu et capacité mensuelle.
-        8) ## Lecture finale : 6 lignes maximum. Si le point mort comptable est très bas (ex : moins d'une vente/prestation par mois), précise que cela ne sécurise pas l'activité : le vrai risque reste l'acquisition régulière de clients, la conversion et la capacité de livraison.
+        8) ## Lecture finale : 6 lignes maximum. Si le point mort comptable est très bas (ex : moins d'une vente/prestation par mois), précise que cela ne sécurise pas l'activité : le vrai risque reste l'acquisition régulière de clients, la conversion et la capacité de livraison. Si le scénario prudent reste positif malgré un faible volume, explique que cela vient du prix moyen ou des coûts variables contenus, mais que la marge de sécurité reste fragile face aux retards de paiement, dépassements de production, coûts commerciaux et délais de conversion.
         """,
     ),
     Section(
@@ -987,19 +989,33 @@ def clean_ai_text(text: str) -> str:
     return text.strip()
 
 FORBIDDEN_PATTERNS = [
+    # Placeholders client-visibles très probables.
     r"\[[A-Za-zÀ-ÿ ]{1,30}\]",
-    r"\bX\s*(prises de contact|RDV|rendez-vous|contrats|nouveaux leads|leads|clients|ventes|euros|€|%)",
-    r"\bX\s*(milliers|millions|milliards|%)",
-    r"\bY\s*(milliers|millions|milliards|%)",
-    r"\bZ\s*(milliers|millions|milliards|%)",
+    r"\bX\s*(prises de contact|RDV|rendez-vous|contrats|nouveaux leads|leads|clients|ventes|euros)\b",
+    r"\bX\s*(milliers|millions|milliards)\b",
+    r"\bY\s*(milliers|millions|milliards)\b",
+    r"\bZ\s*(milliers|millions|milliards)\b",
     r"à compléter",
     r"TODO",
     r"Cette section n['’]a pas pu être générée",
+    # Fuites de prompt / consignes internes.
     r"Color know the following code snippet",
     r"Code Snippet provides additional context",
     r"complete the analysis on existing input",
     r"user is asking to complete",
+    r"existing input",
+    r"continue from where",
     r"Do not regenerate",
+]
+
+AMBIGUOUS_PLACEHOLDER_PATTERNS = [
+    # On ne bloque pas automatiquement X% / X€ : cela peut être une variable théorique.
+    # On le signale seulement en warning pour relecture.
+    r"\bX\s*(%|€)\b",
+    r"\bobjectif\s*:?\s*X\b",
+    r"\bbudget\s*:?\s*X\b",
+    r"\batteindre\s+X\b",
+    r"\bobtenir\s+X\b",
 ]
 
 
@@ -1050,7 +1066,13 @@ def classify_quality_issues(section_id: str, text: str) -> Tuple[List[str], List
     for pattern in FORBIDDEN_PATTERNS:
         if re.search(pattern, text or "", flags=re.IGNORECASE):
             blocking.append(f"Placeholder/interdit détecté : {pattern}")
-    if re.search(r"(hypothèse de|à vérifier|pour|avec|sans|afin de|en cas de)\s*[.…]?\s*$", text.strip(), flags=re.IGNORECASE):
+    for pattern in AMBIGUOUS_PLACEHOLDER_PATTERNS:
+        if re.search(pattern, text or "", flags=re.IGNORECASE):
+            warnings.append(f"Placeholder ambigu à relire : {pattern}")
+            break
+    # Détection prudente des troncatures : on évite les faux positifs comme "à vérifier" ou "à valider".
+    # On signale surtout les fins visiblement coupées par une ellipse après un connecteur.
+    if re.search(r"(hypothèse de|source|notamment|avec|pour|afin de|en cas de)\s*…\s*$", text.strip(), flags=re.IGNORECASE):
         blocking.append("Texte probablement tronqué en fin de section.")
     if "```" in text:
         warnings.append("Bloc code Markdown détecté - réparable PDF.")
