@@ -19,7 +19,7 @@ INSTALLATION :
 LANCEMENT :
     Mac/Linux : export GEMINI_API_KEY="ta_cle_ici"
     Windows PowerShell : $env:GEMINI_API_KEY = "ta_cle_ici"
-    python3 generate_content_mb_v5.py
+    python3 generate_content.py
 """
 
 from __future__ import annotations
@@ -82,7 +82,7 @@ PROJECT_TYPE_OPTIONS = [
 REQUIRED_INPUT_FIELDS = ["concept", "project_type", "zone", "target_customer", "main_offer"]
 OPTIONAL_INPUT_FIELDS = [
     "budget_eur", "revenue_model", "specificities", "additional_context",
-    "competitors_known", "price_positioning", "stage", "constraints",
+    "competitors_known", "price_positioning", "stage", "main_goal", "constraints",
 ]
 
 DEFAULT_BUDGET_RANGES: Dict[str, str] = {
@@ -127,29 +127,55 @@ MISSING_FIELD_TEXTS: Dict[str, str] = {
     "competitors_known": "Aucun concurrent fourni : l'analyse repose sur les recherches disponibles et sur les acteurs comparables identifiés.",
 }
 
-PROJECT_INPUT: Dict[str, Any] = {
-    "concept": "Studio de formation immersive utilisant l'IA et la réalité virtuelle pour créer des simulations sur mesure de situations à risque en entreprise : sécurité industrielle, maintenance, gestes métier, accueil d'urgence et procédures critiques",
-    "project_type": "projet_hybride",
-    "zone": "France, avec priorité commerciale sur les sites industriels des Hauts-de-France, de l'Île-de-France et d'Auvergne-Rhône-Alpes",
-    "target_customer": "Directions industrielles, responsables HSE, responsables formation, responsables maintenance et DRH de PME industrielles, ETI et grands comptes ayant des enjeux de sécurité, conformité et montée en compétences",
-    "main_offer": "Conception de modules immersifs sur mesure, scénarios VR assistés par IA, formations sécurité et maintenance, simulateurs de gestes métier, tableaux de suivi des apprentissages et accompagnement au déploiement",
-    "budget_eur": 180000,
-    "revenue_model": "",
-    "specificities": ["digital_acquisition", "service_humain", "investissement_lourd"],
-    "additional_context": "Projet très innovant avec peu de concurrents directs clairement identifiables. L'offre combine conseil, ingénierie pédagogique, IA générative, production de scénarios immersifs, matériel VR éventuel et accompagnement formation. Le modèle économique devra être déduit : projets sur mesure, abonnements, licences, maintenance, formation et accompagnement. Il faudra analyser prudemment les alternatives indirectes : organismes de formation classiques, cabinets HSE, e-learning, simulateurs VR existants, formations terrain internes et solutions logicielles de formation."
+
+CLIENT_PRIVATE_FIELDS = {"name", "email", "phone"}
+CLIENT_REPORT_ALLOWED_FIELDS = {"project_name", "stage", "main_goal"}
+STAGE_LABELS = {
+    "idee": "idée à cadrer",
+    "preparation": "préparation du lancement",
+    "deja_lance": "activité déjà lancée",
+    "repositionnement": "repositionnement d'une activité existante",
+    "developpement": "développement / croissance d'une activité existante",
+}
+MAIN_GOAL_LABELS = {
+    "valider_idee": "valider l'idée",
+    "comprendre_marche": "comprendre le marché",
+    "analyser_concurrence": "analyser la concurrence",
+    "definir_offre_prix": "définir l'offre et les prix",
+    "plan_lancement": "construire un plan de lancement",
+    "preparer_financement": "préparer un financement",
+    "developper_ventes": "développer les ventes",
+    "se_rassurer": "se rassurer avant d'investir",
 }
 
-CONTENT_FILE = "contenu_genere_v5.json"  # V5 : cache séparé pour éviter les confusions avec V4/V4.1
+
+PROJECT_INPUT: Dict[str, Any] = {
+    # Exemple volontairement vide : en production, main.py / FastAPI injecte les données réelles
+    # AVANT d'appeler main(). Ne jamais laisser ici un vrai ancien projet de test.
+    "concept": "",
+    "project_type": "",
+    "zone": "",
+    "target_customer": "",
+    "main_offer": "",
+    "budget_eur": None,
+    "revenue_model": "",
+    "specificities": [],
+    "additional_context": "",
+}
+
+CONTENT_FILE = os.environ.get("CONTENT_FILE", "contenu_genere.json")  # nom final sans suffixe V5
 
 API_KEY = os.environ.get("GEMINI_API_KEY")
-if not API_KEY:
-    raise SystemExit(
-        "Erreur : pas de clé API trouvée. Fais : export GEMINI_API_KEY=\"ta_cle\" "
-        "ou $env:GEMINI_API_KEY sur PowerShell."
-    )
 
-MODEL_REDACTION = "gemini-2.5-flash"
-MODELES_RECHERCHE_CANDIDATS = ["gemini-3-flash", "gemini-2.5-flash"]
+MODEL_REDACTION = os.environ.get("MODEL_REDACTION", "gemini-2.5-flash")
+MODELES_REDACTION_CANDIDATS = [
+    m.strip() for m in os.environ.get("MODELES_REDACTION_CANDIDATS", f"{MODEL_REDACTION},gemini-2.0-flash").split(",")
+    if m.strip()
+]
+MODELES_RECHERCHE_CANDIDATS = [
+    m.strip() for m in os.environ.get("MODELES_RECHERCHE_CANDIDATS", "gemini-3-flash,gemini-2.5-flash").split(",")
+    if m.strip()
+]
 _modele_recherche_valide: Optional[str] = None
 PAUSE_ENTRE_APPELS = 0.8
 MAX_RETRIES = 4
@@ -304,7 +330,19 @@ def normalize_project_input(raw_project: Dict[str, Any]) -> Tuple[Dict[str, Any]
       - spécificités déduites seulement si non cochées.
     """
     project = dict(raw_project)
-    meta: Dict[str, Any] = {"fields": {}, "blocking_errors": [], "fallbacks": {}, "global_notes": []}
+    meta: Dict[str, Any] = {
+        "fields": {},
+        "blocking_errors": [],
+        "fallbacks": {},
+        "global_notes": [],
+        "private_contact": {},
+    }
+
+    # Champs commerciaux : conservés pour le suivi, jamais injectés dans les prompts ni dans le rapport.
+    for private_field in CLIENT_PRIVATE_FIELDS:
+        if not _is_blank(raw_project.get(private_field)):
+            meta["private_contact"][private_field] = _clean_text(raw_project.get(private_field))
+        project.pop(private_field, None)
 
     project_type = _clean_text(project.get("project_type")) or "projet_hybride"
     if project_type not in PROJECT_TYPE_OPTIONS:
@@ -368,7 +406,7 @@ def normalize_project_input(raw_project: Dict[str, Any]) -> Tuple[Dict[str, Any]
         "fallback_text": MISSING_FIELD_TEXTS["specificities"] if inferred_specs else "",
     }
 
-    for field in ["additional_context", "competitors_known", "price_positioning", "stage", "constraints"]:
+    for field in ["additional_context", "competitors_known", "price_positioning", "stage", "main_goal", "constraints", "project_name"]:
         if _is_blank(project.get(field)):
             project[field] = ""
             meta["fields"][field] = {"status": "missing", "value": "", "fallback_text": MISSING_FIELD_TEXTS.get(field, "Champ facultatif non renseigné.")}
@@ -377,8 +415,15 @@ def normalize_project_input(raw_project: Dict[str, Any]) -> Tuple[Dict[str, Any]
                 project[field] = _clean_text(project[field])
             meta["fields"][field] = {"status": "provided", "value": project[field]}
 
+    # Libellés utiles pour les prompts, sans complexifier la logique.
+    if project.get("stage"):
+        project["stage_label"] = STAGE_LABELS.get(str(project["stage"]).strip(), str(project["stage"]).strip())
+    if project.get("main_goal"):
+        project["main_goal_label"] = MAIN_GOAL_LABELS.get(str(project["main_goal"]).strip(), str(project["main_goal"]).strip())
+
     if meta["blocking_errors"]:
         # On bloque avant d'appeler l'API, pour éviter des rapports absurdes et des coûts inutiles.
+        # En production, main.py doit capter cette exception et envoyer un email technique.
         message = "\n".join(meta["blocking_errors"])
         raise SystemExit("Erreur formulaire :\n" + message)
 
@@ -386,10 +431,9 @@ def normalize_project_input(raw_project: Dict[str, Any]) -> Tuple[Dict[str, Any]
     return project, meta
 
 
-PROJECT_INPUT_RAW = dict(PROJECT_INPUT)
-PROJECT_INPUT, PROJECT_INPUT_META = normalize_project_input(PROJECT_INPUT_RAW)
-PROJECT_PROFILE = derive_project_profile(PROJECT_INPUT)
-PROJECT_PROFILE["input_meta"] = PROJECT_INPUT_META
+PROJECT_INPUT_RAW: Dict[str, Any] = {}
+PROJECT_INPUT_META: Dict[str, Any] = {}
+PROJECT_PROFILE: Dict[str, Any] = {}
 
 
 # ----------------------------------------------------------------------------
@@ -453,10 +497,14 @@ def url_pour_modele(nom_modele: str) -> str:
 def sanitize(texte: Any) -> str:
     if texte is None:
         return ""
-    return str(texte).replace(API_KEY, "[CLE_API_MASQUEE]")
+    return str(texte).replace(API_KEY or "", "[CLE_API_MASQUEE]") if API_KEY else str(texte)
 
 
 def appel_gemini_brut(payload: Dict[str, Any], nom_modele: str) -> Dict[str, Any]:
+    global API_KEY
+    API_KEY = API_KEY or os.environ.get("GEMINI_API_KEY")
+    if not API_KEY:
+        raise RuntimeError("GEMINI_API_KEY absent : génération impossible.")
     headers = {"Content-Type": "application/json", "x-goog-api-key": API_KEY}
     response = requests.post(url_pour_modele(nom_modele), json=payload, headers=headers, timeout=160)
     response.raise_for_status()
@@ -482,8 +530,14 @@ def choisir_modele_recherche() -> str:
 COMPTEUR = {"tokens_in": 0, "tokens_out": 0, "requetes_recherche": 0}
 
 
+def _model_candidates(use_search: bool) -> List[str]:
+    if use_search:
+        return [choisir_modele_recherche()]
+    # Déduplique en conservant l'ordre.
+    return list(dict.fromkeys(MODELES_REDACTION_CANDIDATS or [MODEL_REDACTION]))
+
+
 def call_gemini(prompt_text: str, use_search: bool = False, max_retries: int = MAX_RETRIES) -> Tuple[str, int, Optional[str]]:
-    nom_modele = choisir_modele_recherche() if use_search else MODEL_REDACTION
     payload: Dict[str, Any] = {
         "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
         "contents": [{"parts": [{"text": prompt_text}]}],
@@ -491,41 +545,49 @@ def call_gemini(prompt_text: str, use_search: bool = False, max_retries: int = M
     if use_search:
         payload["tools"] = [{"google_search": {}}]
 
-    derniere_erreur: Optional[str] = None
-    for tentative in range(1, max_retries + 1):
-        try:
-            data = appel_gemini_brut(payload, nom_modele)
-            candidate = data["candidates"][0]
-            texte = candidate["content"]["parts"][0]["text"]
-            grounding = candidate.get("groundingMetadata", {})
-            nb_sources = len(grounding.get("groundingChunks", []))
-            nb_requetes = len(grounding.get("webSearchQueries", [])) or (1 if use_search else 0)
-            usage = data.get("usageMetadata", {})
-            COMPTEUR["tokens_in"] += usage.get("promptTokenCount", 0)
-            COMPTEUR["tokens_out"] += usage.get("candidatesTokenCount", 0)
-            COMPTEUR["requetes_recherche"] += nb_requetes
-            return texte.strip(), nb_sources, None
-        except requests.exceptions.HTTPError as e:
-            code = e.response.status_code if e.response is not None else None
-            derniere_erreur = sanitize(f"Erreur HTTP {code}")
-            if code == 429:
-                attente = min(180, 20 * tentative * tentative)
-                print(f"    (quota atteint, pause de {attente}s avant retry {tentative}/{max_retries})")
-                time.sleep(attente)
-                continue
-            if code and 500 <= code < 600:
+    erreurs_modeles: List[str] = []
+    for nom_modele in _model_candidates(use_search):
+        derniere_erreur: Optional[str] = None
+        for tentative in range(1, max_retries + 1):
+            try:
+                data = appel_gemini_brut(payload, nom_modele)
+                candidate = data["candidates"][0]
+                texte = candidate["content"]["parts"][0]["text"]
+                grounding = candidate.get("groundingMetadata", {})
+                nb_sources = len(grounding.get("groundingChunks", []))
+                nb_requetes = len(grounding.get("webSearchQueries", [])) or (1 if use_search else 0)
+                usage = data.get("usageMetadata", {})
+                COMPTEUR["tokens_in"] += usage.get("promptTokenCount", 0)
+                COMPTEUR["tokens_out"] += usage.get("candidatesTokenCount", 0)
+                COMPTEUR["requetes_recherche"] += nb_requetes
+                return texte.strip(), nb_sources, None
+            except requests.exceptions.HTTPError as e:
+                code = e.response.status_code if e.response is not None else None
+                derniere_erreur = sanitize(f"{nom_modele} : Erreur HTTP {code}")
+                if code == 429:
+                    attente = min(180, 20 * tentative * tentative)
+                    print(f"    ({nom_modele} quota atteint, pause de {attente}s avant retry {tentative}/{max_retries})")
+                    time.sleep(attente)
+                    continue
+                if code and 500 <= code < 600:
+                    time.sleep(8 * tentative)
+                    continue
+                break
+            except (KeyError, IndexError):
+                derniere_erreur = f"{nom_modele} : Réponse inattendue de l'API."
+                break
+            except requests.exceptions.RequestException as e:
+                derniere_erreur = sanitize(f"{nom_modele} : Erreur réseau : {type(e).__name__}")
                 time.sleep(8 * tentative)
                 continue
-            break
-        except (KeyError, IndexError):
-            derniere_erreur = "Réponse inattendue de l'API."
-            break
-        except requests.exceptions.RequestException as e:
-            derniere_erreur = sanitize(f"Erreur réseau : {type(e).__name__}")
-            time.sleep(8 * tentative)
-            continue
+            except Exception as e:
+                derniere_erreur = sanitize(f"{nom_modele} : Erreur inattendue : {type(e).__name__}")
+                break
+        erreurs_modeles.append(derniere_erreur or f"{nom_modele} : échec inconnu")
+        if not use_search and nom_modele != _model_candidates(use_search)[-1]:
+            print(f"    ({nom_modele} indisponible ou en échec, essai modèle suivant...)")
 
-    return "", 0, derniere_erreur or "Échec inconnu"
+    return "", 0, " | ".join(erreurs_modeles) or "Échec inconnu"
 
 # ----------------------------------------------------------------------------
 # 5. RECHERCHES GROUPÉES — adaptées par profil, pas par section
@@ -926,12 +988,18 @@ def clean_ai_text(text: str) -> str:
 
 FORBIDDEN_PATTERNS = [
     r"\[[A-Za-zÀ-ÿ ]{1,30}\]",
+    r"\bX\s*(prises de contact|RDV|rendez-vous|contrats|nouveaux leads|leads|clients|ventes|euros|€|%)",
     r"\bX\s*(milliers|millions|milliards|%)",
     r"\bY\s*(milliers|millions|milliards|%)",
     r"\bZ\s*(milliers|millions|milliards|%)",
     r"à compléter",
     r"TODO",
     r"Cette section n['’]a pas pu être générée",
+    r"Color know the following code snippet",
+    r"Code Snippet provides additional context",
+    r"complete the analysis on existing input",
+    r"user is asking to complete",
+    r"Do not regenerate",
 ]
 
 
@@ -982,6 +1050,8 @@ def classify_quality_issues(section_id: str, text: str) -> Tuple[List[str], List
     for pattern in FORBIDDEN_PATTERNS:
         if re.search(pattern, text or "", flags=re.IGNORECASE):
             blocking.append(f"Placeholder/interdit détecté : {pattern}")
+    if re.search(r"(hypothèse de|à vérifier|pour|avec|sans|afin de|en cas de)\s*[.…]?\s*$", text.strip(), flags=re.IGNORECASE):
+        blocking.append("Texte probablement tronqué en fin de section.")
     if "```" in text:
         warnings.append("Bloc code Markdown détecté - réparable PDF.")
     warnings.extend(validate_markdown_tables(text))
@@ -1041,6 +1111,20 @@ def sauvegarder(resultats: Dict[str, Any]) -> None:
         json.dump(resultats, f, ensure_ascii=False, indent=2)
 
 
+def initialize_project_context(raw_project: Optional[Dict[str, Any]] = None) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
+    """Normalise et dérive le profil au moment de l'appel, jamais au chargement du module.
+
+    Cela évite qu'un ancien PROJECT_INPUT codé en dur reste en mémoire si FastAPI
+    injecte les données après import dynamique.
+    """
+    global PROJECT_INPUT_RAW, PROJECT_INPUT, PROJECT_INPUT_META, PROJECT_PROFILE
+    PROJECT_INPUT_RAW = dict(raw_project if raw_project is not None else PROJECT_INPUT)
+    PROJECT_INPUT, PROJECT_INPUT_META = normalize_project_input(PROJECT_INPUT_RAW)
+    PROJECT_PROFILE = derive_project_profile(PROJECT_INPUT)
+    PROJECT_PROFILE["input_meta"] = PROJECT_INPUT_META
+    return PROJECT_INPUT, PROJECT_INPUT_META, PROJECT_PROFILE
+
+
 def prompt_base() -> str:
     return SECTION_COMMON_TEMPLATE.format(
         project_json=json.dumps(PROJECT_INPUT, ensure_ascii=False, indent=2),
@@ -1092,100 +1176,143 @@ def build_section_prompt(section: Section, contextes: Dict[str, str], resultats:
         + previous_summary
     )
 
-def main() -> None:
-    resultats = charger_resultats_existants()
-    if not resultats:
-        resultats = {}
-    resultats["_project_input"] = PROJECT_INPUT
-    resultats["_project_input_meta"] = PROJECT_INPUT_META
-    resultats["_project_profile"] = PROJECT_PROFILE
-    resultats["_sections_display_order"] = DISPLAY_ORDER
-    resultats["_section_titles"] = {s.id: s.title for s in SECTIONS}
-    sauvegarder(resultats)
-
-    print("Spécificités guidées retenues :")
-    for spec in PROJECT_INPUT.get("specificities", []):
-        if spec in SPECIFICITY_OPTIONS:
-            print(f"  - {SPECIFICITY_OPTIONS[spec]['label']}")
-
-    # 1) Recherches groupées.
-    search_prompts = build_search_prompts(PROJECT_INPUT, PROJECT_PROFILE)
-    contextes: Dict[str, str] = {}
-    for key, template in search_prompts.items():
-        stored = resultats.get(f"_recherche_{key}")
-        if stored and stored.get("texte") and not stored.get("erreur") and not is_stale_research(key, stored):
-            contextes[key] = stored["texte"]
-            print(f"--> Recherche '{key}' déjà faite, réutilisée.")
-            continue
-        if stored and is_stale_research(key, stored):
-            print(f"--> Recherche '{key}' jugée trop générique, relancée une seule fois.")
-        if key == "avis_clients":
-            template = template.replace("{contexte_concurrence}", contextes.get("concurrence", "[aucune concurrence identifiée]"))
-        print(f"--> Recherche groupée : {key}")
-        texte, nb_sources, erreur = call_gemini(template, use_search=True)
-        texte = clean_ai_text(texte)
-        contextes[key] = texte
-        resultats[f"_recherche_{key}"] = {
-            "titre": f"[Recherche interne : {key}]",
-            "texte": texte,
-            "nb_sources_web": nb_sources,
-            "erreur": erreur,
-        }
-        sauvegarder(resultats)
-        time.sleep(PAUSE_ENTRE_APPELS)
-
-    # 2) Sections 2 à 14, puis 15, puis 1.
-    generation_order = sorted(SECTIONS, key=lambda s: s.generate_order)
-    for section in generation_order:
-        stored = resultats.get(section.id)
-        if stored and stored.get("texte") and not stored.get("erreur"):
-            print(f"--> {section.title} déjà générée, on saute.")
-            continue
-        print(f"--> Génération : {section.title}")
-        prompt = build_section_prompt(section, contextes, resultats)
-        texte, nb_sources, erreur = call_gemini(prompt, use_search=False)
-        texte = clean_ai_text(texte)
-        blocking, warnings = classify_quality_issues(section.id, texte) if texte else (["Texte vide"], [])
-        # V4.1 : seuls les vrais problèmes de contenu bloquent.
-        # Les tableaux à 5 colonnes / cellules longues sont des avertissements réparables dans le PDF.
-        if blocking and not erreur:
-            erreur = "Contrôle qualité bloquant : " + "; ".join(blocking[:4])
-        resultats[section.id] = {
-            "titre": section.title,
-            "texte": texte,
-            "erreur": erreur,
-            "quality_issues": blocking + warnings,
-            "blocking_issues": blocking,
-            "format_warnings": warnings,
-        }
-        sauvegarder(resultats)
-        time.sleep(PAUSE_ENTRE_APPELS)
-
-    qr = quality_report(resultats)
-    resultats["_quality_report"] = qr
-    sauvegarder(resultats)
-
-    print("\n--- Contrôle qualité interne ---")
-    print(json.dumps(qr["summary"], ensure_ascii=False, indent=2))
-    if not qr["summary"]["ready_for_pdf"]:
-        print("⚠️ PDF final bloqué : corrige ou régénère les sections avec erreurs bloquantes.")
-        for sid, payload in qr["sections"].items():
-            blocking = payload.get("blocking", []) if isinstance(payload, dict) else payload
+def _print_quality_snapshot(resultats: Dict[str, Any], exception: Optional[BaseException] = None) -> None:
+    """Toujours écrire un résumé qualité exploitable dans les logs."""
+    try:
+        qr = quality_report(resultats or {})
+        print("\n--- Contrôle qualité interne ---")
+        if exception is not None:
+            print(f"Exception pendant génération : {type(exception).__name__}: {sanitize(exception)}")
+        print(json.dumps(qr["summary"], ensure_ascii=False, indent=2))
+        for sid, payload in qr.get("sections", {}).items():
+            blocking = payload.get("blocking", []) if isinstance(payload, dict) else []
             if blocking:
                 print(f"  - {sid} : {blocking[:3]}")
-    else:
-        print("✅ Contenu prêt pour génération PDF.")
+    except Exception as log_error:
+        print("\n--- Contrôle qualité interne ---")
+        print(f"Impossible de produire le résumé qualité : {type(log_error).__name__}: {sanitize(log_error)}")
+
+
+def main(raw_project: Optional[Dict[str, Any]] = None, output_file: Optional[str] = None) -> Dict[str, Any]:
+    """Génère le contenu JSON du rapport.
+
+    Contrat production :
+      - raw_project vient du formulaire FastAPI ;
+      - output_file permet à main.py d'utiliser un fichier unique par commande ;
+      - le contexte projet est recalculé ici, jamais au chargement du module.
+    """
+    global CONTENT_FILE
+    if output_file:
+        CONTENT_FILE = output_file
+    resultats: Dict[str, Any] = {}
+    exception: Optional[BaseException] = None
+    try:
+        initialize_project_context(raw_project)
+        resultats = charger_resultats_existants()
+        if not resultats:
+            resultats = {}
+        resultats["_project_input"] = PROJECT_INPUT
+        resultats["_project_input_meta"] = PROJECT_INPUT_META
+        resultats["_project_profile"] = PROJECT_PROFILE
+        resultats["_sections_display_order"] = DISPLAY_ORDER
+        resultats["_section_titles"] = {s.id: s.title for s in SECTIONS}
+        sauvegarder(resultats)
+
+        print("Spécificités guidées retenues :")
+        for spec in PROJECT_INPUT.get("specificities", []):
+            if spec in SPECIFICITY_OPTIONS:
+                print(f"  - {SPECIFICITY_OPTIONS[spec]['label']}")
+
+        # 1) Recherches groupées.
+        search_prompts = build_search_prompts(PROJECT_INPUT, PROJECT_PROFILE)
+        contextes: Dict[str, str] = {}
+        for key, template in search_prompts.items():
+            stored = resultats.get(f"_recherche_{key}")
+            if stored and stored.get("texte") and not stored.get("erreur") and not is_stale_research(key, stored):
+                contextes[key] = stored["texte"]
+                print(f"--> Recherche '{key}' déjà faite, réutilisée.")
+                continue
+            if stored and is_stale_research(key, stored):
+                print(f"--> Recherche '{key}' jugée trop générique, relancée une seule fois.")
+            if key == "avis_clients":
+                template = template.replace("{contexte_concurrence}", contextes.get("concurrence", "[aucune concurrence identifiée]"))
+            print(f"--> Recherche groupée : {key}")
+            texte, nb_sources, erreur = call_gemini(template, use_search=True)
+            texte = clean_ai_text(texte)
+            contextes[key] = texte
+            resultats[f"_recherche_{key}"] = {
+                "titre": f"[Recherche interne : {key}]",
+                "texte": texte,
+                "nb_sources_web": nb_sources,
+                "erreur": erreur,
+            }
+            sauvegarder(resultats)
+            time.sleep(PAUSE_ENTRE_APPELS)
+
+        # 2) Sections 2 à 14, puis 15, puis 1.
+        generation_order = sorted(SECTIONS, key=lambda s: s.generate_order)
+        for section in generation_order:
+            stored = resultats.get(section.id)
+            if stored and stored.get("texte") and not stored.get("erreur"):
+                print(f"--> {section.title} déjà générée, on saute.")
+                continue
+            print(f"--> Génération : {section.title}")
+            prompt = build_section_prompt(section, contextes, resultats)
+            texte, nb_sources, erreur = call_gemini(prompt, use_search=False)
+            texte = clean_ai_text(texte)
+            blocking, warnings = classify_quality_issues(section.id, texte) if texte else (["Texte vide"], [])
+            if blocking and not erreur:
+                erreur = "Contrôle qualité bloquant : " + "; ".join(blocking[:4])
+            resultats[section.id] = {
+                "titre": section.title,
+                "texte": texte,
+                "erreur": erreur,
+                "quality_issues": blocking + warnings,
+                "blocking_issues": blocking,
+                "format_warnings": warnings,
+            }
+            sauvegarder(resultats)
+            time.sleep(PAUSE_ENTRE_APPELS)
+
+        qr = quality_report(resultats)
+        resultats["_quality_report"] = qr
+        sauvegarder(resultats)
+
+        if qr["summary"]["ready_for_pdf"]:
+            print("✅ Contenu prêt pour génération PDF.")
+        else:
+            print("⚠️ Contenu généré avec points à vérifier : PDF brouillon autorisé.")
         warnings = qr["summary"].get("format_warnings_total", 0)
         if warnings:
             print(f"ℹ️ {warnings} avertissements de mise en forme seront réparés côté PDF (tableaux/fiches).")
 
-    cout_tokens = (COMPTEUR["tokens_in"] / 1_000_000 * 0.30) + (COMPTEUR["tokens_out"] / 1_000_000 * 2.50)
-    cout_recherche = COMPTEUR["requetes_recherche"] * 0.035
-    cout_total_usd = cout_tokens + cout_recherche
-    print("\n--- Estimation coût interne, à ne jamais mettre dans le PDF ---")
-    print(f"Tokens entrée/sortie : {COMPTEUR['tokens_in']} / {COMPTEUR['tokens_out']}")
-    print(f"Requêtes recherche web : {COMPTEUR['requetes_recherche']}")
-    print(f"Coût estimé prudent : ~{cout_total_usd:.3f} $ US")
+        cout_tokens = (COMPTEUR["tokens_in"] / 1_000_000 * 0.30) + (COMPTEUR["tokens_out"] / 1_000_000 * 2.50)
+        cout_recherche = COMPTEUR["requetes_recherche"] * 0.035
+        cout_total_usd = cout_tokens + cout_recherche
+        print("\n--- Estimation coût interne, à ne jamais mettre dans le PDF ---")
+        print(f"Tokens entrée/sortie : {COMPTEUR['tokens_in']} / {COMPTEUR['tokens_out']}")
+        print(f"Requêtes recherche web : {COMPTEUR['requetes_recherche']}")
+        print(f"Coût estimé prudent : ~{cout_total_usd:.3f} $ US")
+        return resultats
+    except BaseException as exc:
+        exception = exc
+        # On sauvegarde au maximum ce qui est disponible pour que main.py puisse diagnostiquer.
+        try:
+            if resultats is None:
+                resultats = {}
+            resultats["_fatal_error"] = f"{type(exc).__name__}: {sanitize(exc)}"
+            if PROJECT_INPUT:
+                resultats["_project_input"] = PROJECT_INPUT
+            if PROJECT_INPUT_META:
+                resultats["_project_input_meta"] = PROJECT_INPUT_META
+            if PROJECT_PROFILE:
+                resultats["_project_profile"] = PROJECT_PROFILE
+            sauvegarder(resultats)
+        except Exception:
+            pass
+        raise
+    finally:
+        _print_quality_snapshot(resultats, exception=exception)
 
 
 if __name__ == "__main__":
