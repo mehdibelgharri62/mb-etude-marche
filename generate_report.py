@@ -85,7 +85,7 @@ DEFAULT_SECTIONS_PDF: List[Tuple[str, str]] = [
 SECTIONS_PDF = [(sid, SECTION_TITLES.get(sid, title)) for sid, title in DEFAULT_SECTIONS_PDF]
 
 # V4.1 : pas de contenu de démonstration dans un PDF réel.
-DEMO_MODE = True
+DEMO_MODE = False
 STRICT_MODE = True  # En production : bloque seulement les vrais problèmes non réparables.
 REPAIRABLE_ERROR_PREFIXES = ("Contrôle qualité à revoir", "Contrôle qualité")
 
