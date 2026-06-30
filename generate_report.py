@@ -1,14 +1,14 @@
 """
-MB CONSULTING — Génération PDF du rapport V4.1 bis
+MB CONSULTING — Génération PDF du rapport final
 ============================================
-Lit contenu_genere_v4.json puis génère un PDF plus aéré :
+Lit contenu_genere.json puis génère un PDF plus aéré :
   - 15 sections au lieu de 30.
   - Pas de PageBreak systématique après chaque section.
   - Tableaux limités : 4 colonnes max, cellules courtes, repli en fiches si trop dense.
   - Vraies listes à puces.
   - Styles plus lisibles : corps 10.8 pt, interligne 16 pt, espacements réguliers.
   - V4.1 bis : compactage éditorial des tableaux larges, suppression des résidus G/Markdown.
-  - Contrôle qualité bloquant si sections manquantes / placeholders / balises HTML.
+  - Contrôle qualité non bloquant : PDF brouillon généré et diagnostics exportés.
 
 Aucun appel API ici.
 """
@@ -44,8 +44,8 @@ from reportlab.platypus import (
 # 0. FICHIERS ET CONTENU
 # ----------------------------------------------------------------------------
 
-CONTENT_FILE = "contenu_genere_v5.json"  # V5 : cache séparé
-OUTPUT_PATH = "etude_de_marche_V5.pdf"
+CONTENT_FILE = os.environ.get("CONTENT_FILE", "contenu_genere.json")
+OUTPUT_PATH = os.environ.get("OUTPUT_PATH", "etude_de_marche.pdf")
 
 REAL_CONTENT: Dict[str, Any] = {}
 if os.path.exists(CONTENT_FILE):
@@ -53,13 +53,14 @@ if os.path.exists(CONTENT_FILE):
         REAL_CONTENT = json.load(f)
     print(f"Contenu trouvé : {CONTENT_FILE}")
 else:
-    print("Aucun contenu_genere_v4.json trouvé — PDF bloqué hors mode démo.")
+    print(f"Aucun {CONTENT_FILE} trouvé — PDF brouillon de diagnostic généré.")
 
 PROJECT_INPUT = REAL_CONTENT.get("_project_input", {})
 PROJECT_PROFILE = REAL_CONTENT.get("_project_profile", {})
 
 CLIENT_VILLE = PROJECT_INPUT.get("zone", "Zone à préciser")
 CLIENT_CONCEPT = PROJECT_INPUT.get("concept", "Concept à préciser")
+CLIENT_PROJECT_NAME = PROJECT_INPUT.get("project_name", "")
 DATE_RAPPORT = date.today().strftime("%d/%m/%Y")
 NOM_CABINET = "MB Consulting"
 
@@ -86,7 +87,7 @@ SECTIONS_PDF = [(sid, SECTION_TITLES.get(sid, title)) for sid, title in DEFAULT_
 
 # V4.1 : pas de contenu de démonstration dans un PDF réel.
 DEMO_MODE = False
-STRICT_MODE = True  # En production : bloque seulement les vrais problèmes non réparables.
+STRICT_MODE = False  # En production : ne bloque jamais le PDF ; les issues passent en brouillon.
 REPAIRABLE_ERROR_PREFIXES = ("Contrôle qualité à revoir", "Contrôle qualité")
 
 # ----------------------------------------------------------------------------
@@ -162,6 +163,14 @@ styles.add(ParagraphStyle(
 styles.add(ParagraphStyle(
     name="AlertText", fontName=BASE_FONT, fontSize=10.4,
     leading=14.5, textColor=colors.HexColor("#7A1F1F"),
+))
+styles.add(ParagraphStyle(
+    name="DraftBanner", fontName=BASE_FONT_BOLD, fontSize=12,
+    textColor=colors.white, alignment=TA_CENTER, leading=15, spaceAfter=0,
+))
+styles.add(ParagraphStyle(
+    name="DiagnosticText", fontName=BASE_FONT, fontSize=9.2,
+    leading=12.4, textColor=COLOR_TEXT,
 ))
 styles.add(ParagraphStyle(
     name="TOCLine", fontName=BASE_FONT, fontSize=10.5,
@@ -267,6 +276,33 @@ def callout_box(title: str, body: Sequence[str], alert: bool = False) -> Table:
         ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
     ]))
     return table
+
+
+
+def draft_banner(issues: Sequence[str]) -> Table:
+    title = "BROUILLON - À VÉRIFIER"
+    subtitle = f"{len(issues)} point(s) de contrôle détecté(s). Rapport généré pour relecture interne uniquement."
+    table = Table([
+        [Paragraph(title, styles["DraftBanner"])],
+        [Paragraph(md_inline_to_xml(subtitle), styles["CTABody"])],
+    ], colWidths=[17 * cm])
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), COLOR_ALERT_BORDER),
+        ("TOPPADDING", (0, 0), (-1, -1), 7),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+        ("LEFTPADDING", (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+    ]))
+    return table
+
+
+def issues_diagnostic_block(issues: Sequence[str]) -> List[Any]:
+    if not issues:
+        return []
+    body = [f"- {issue}" for issue in issues[:30]]
+    if len(issues) > 30:
+        body.append(f"- {len(issues) - 30} autre(s) point(s) non affiché(s) ici.")
+    return [callout_box("Diagnostic interne - points à vérifier", body, alert=True), Spacer(1, 12)]
 
 
 def cta_block() -> Table:
@@ -571,19 +607,31 @@ def real_section_flowables(markdown_text: str, section_title: str = "", section_
 
 FORBIDDEN_PATTERNS = [
     r"\[[A-Za-zÀ-ÿ ]{1,30}\]",
+    r"\bX\s*(prises de contact|RDV|rendez-vous|contrats|nouveaux leads|leads|clients|ventes|euros|€|%)",
     r"\bX\s*(milliers|millions|milliards|%)",
     r"\bY\s*(milliers|millions|milliards|%)",
     r"\bZ\s*(milliers|millions|milliards|%)",
     r"à compléter",
     r"TODO",
     r"Cette section n['’]a pas pu être générée",
+    r"Color know the following code snippet",
+    r"Code Snippet provides additional context",
+    r"complete the analysis on existing input",
+    r"user is asking to complete",
+    r"Do not regenerate",
 ]
 
 
 def detect_content_issues() -> List[str]:
     issues: List[str] = []
     if not REAL_CONTENT:
-        return issues
+        return ["Aucun contenu JSON disponible."]
+    embedded_qr = REAL_CONTENT.get("_quality_report", {})
+    if isinstance(embedded_qr, dict):
+        for sid, payload in embedded_qr.get("sections", {}).items():
+            title = SECTION_TITLES.get(sid, sid)
+            for issue in payload.get("blocking", []) or []:
+                issues.append(f"{title} : {issue}")
     for sid, title in SECTIONS_PDF:
         item = REAL_CONTENT.get(sid)
         if not item or not item.get("texte"):
@@ -592,13 +640,37 @@ def detect_content_issues() -> List[str]:
         err = item.get("erreur")
         if err and not str(err).startswith(REPAIRABLE_ERROR_PREFIXES):
             issues.append(f"{title} : section en échec ({err}).")
-            continue
         text = strip_markdown_noise(item.get("texte", ""))
         for pattern in FORBIDDEN_PATTERNS:
             if re.search(pattern, text, flags=re.IGNORECASE):
                 issues.append(f"{title} : élément interdit détecté ({pattern}).")
                 break
-    return issues
+        # Détection prudente : on évite les faux positifs comme "à vérifier" ou "à valider".
+        # On signale surtout les fins visiblement coupées par une ellipse après un connecteur.
+        if re.search(r"(hypothèse de|source|notamment|avec|pour|afin de|en cas de)\s*…\s*$", text.strip(), flags=re.IGNORECASE):
+            issues.append(f"{title} : texte probablement tronqué en fin de section.")
+    # Déduplique en conservant l'ordre.
+    return list(dict.fromkeys(issues))
+
+
+PDF_ISSUES: List[str] = detect_content_issues()
+PDF_STATUS = "draft" if PDF_ISSUES else "ready"
+
+
+def export_pdf_issues(path: str = "rapport_quality_issues.json") -> Dict[str, Any]:
+    """Écrit et retourne un diagnostic lisible par main.py pour composer l'objet/corps d'email."""
+    payload = {
+        "status": PDF_STATUS,
+        "email_subject_prefix": "[RAPPORT À VÉRIFIER]" if PDF_ISSUES else "[RAPPORT PRÊT]",
+        "issues": PDF_ISSUES,
+        "issues_count": len(PDF_ISSUES),
+        "output_path": OUTPUT_PATH,
+        "content_file": CONTENT_FILE,
+    }
+    if path:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+    return payload
 
 # ----------------------------------------------------------------------------
 # 7. STORY PDF
@@ -608,8 +680,11 @@ def render_section(section_id: str, section_title: str = "") -> List[Any]:
     item = REAL_CONTENT.get(section_id)
     if item and item.get("texte"):
         err = item.get("erreur")
-        if not err or str(err).startswith(REPAIRABLE_ERROR_PREFIXES):
-            return real_section_flowables(strip_markdown_noise(item["texte"]), section_title=section_title, section_id=section_id)
+        flowables = real_section_flowables(strip_markdown_noise(item["texte"]), section_title=section_title, section_id=section_id)
+        if err and not str(err).startswith(REPAIRABLE_ERROR_PREFIXES):
+            return [callout_box("Section à vérifier", [f"Problème détecté : {err}"], alert=True), Spacer(1, 8)] + flowables
+        return flowables
+
     if DEMO_MODE:
         demo = (
             "## Contenu de démonstration\n\n"
@@ -626,42 +701,58 @@ def render_section(section_id: str, section_title: str = "") -> List[Any]:
             "- Vérifier les chiffres avant publication."
         )
         return real_section_flowables(demo, section_title=section_title, section_id=section_id)
-    raise RuntimeError(f"Section indisponible ou bloquante : {section_id}")
 
+    return [
+        callout_box(
+            "Section indisponible dans ce brouillon",
+            [
+                "La génération de cette section a échoué ou le contenu est absent.",
+                "Le rapport est tout de même généré pour permettre la relecture et le diagnostic.",
+            ],
+            alert=True,
+        ),
+        Spacer(1, 8),
+    ]
 
 def build_cover(story: List[Any]) -> None:
-    story.append(Spacer(1, 4.5 * cm))
+    story.append(Spacer(1, 3.5 * cm if PDF_ISSUES else 4.5 * cm))
+    if PDF_ISSUES:
+        story.append(draft_banner(PDF_ISSUES))
+        story.append(Spacer(1, 0.7 * cm))
     story.append(Paragraph(NOM_CABINET.upper(), styles["CoverKicker"]))
     story.append(Spacer(1, 0.4 * cm))
     story.append(Paragraph("Étude de marché", styles["CoverTitle"]))
     story.append(Paragraph("& plan de lancement stratégique", styles["CoverTitle"]))
-    story.append(Spacer(1, 0.9 * cm))
+    story.append(Spacer(1, 0.7 * cm))
     story.append(HRFlowable(width="42%", color=COLOR_ACCENT, thickness=2, hAlign="CENTER"))
-    story.append(Spacer(1, 0.9 * cm))
+    story.append(Spacer(1, 0.7 * cm))
+    if CLIENT_PROJECT_NAME:
+        story.append(Paragraph(f"Projet : {md_inline_to_xml(CLIENT_PROJECT_NAME)}", styles["CoverSubtitle"]))
     story.append(Paragraph(f"Concept : {md_inline_to_xml(CLIENT_CONCEPT)}", styles["CoverSubtitle"]))
     story.append(Paragraph(f"Zone / marché : {md_inline_to_xml(CLIENT_VILLE)}", styles["CoverSubtitle"]))
-    story.append(Spacer(1, 4.8 * cm))
+    story.append(Spacer(1, 4.1 * cm if PDF_ISSUES else 4.8 * cm))
     story.append(Paragraph(f"Document confidentiel - {DATE_RAPPORT}", styles["Footer"]))
     story.append(PageBreak())
-
 
 def build_toc(story: List[Any]) -> None:
     story.append(section_header(None, "Sommaire"))
     story.append(Spacer(1, 14))
     for i, (_, title) in enumerate(SECTIONS_PDF, start=1):
         story.append(Paragraph(f"{i}. {md_inline_to_xml(title)}", styles["TOCLine"]))
+    if PDF_ISSUES:
+        story.append(Spacer(1, 12))
+        story.extend(issues_diagnostic_block(PDF_ISSUES))
     story.append(PageBreak())
 
 
 def build_story() -> List[Any]:
-    issues = detect_content_issues()
-    if issues and not DEMO_MODE:
-        print("⛔ PDF bloqué : problèmes de contenu détectés :")
-        for issue in issues[:20]:
+    issues = PDF_ISSUES
+    if issues:
+        print("⚠️ PDF généré en mode BROUILLON - À VÉRIFIER :")
+        for issue in issues[:30]:
             print(" -", issue)
-        raise SystemExit("Corrige ou régénère les sections bloquantes avant PDF final.")
-    elif issues:
-        print("⚠️ Mode démo : problèmes détectés, PDF de diagnostic uniquement.")
+    else:
+        print("✅ Aucun problème bloquant détecté côté PDF.")
 
     story: List[Any] = []
     build_cover(story)
@@ -695,7 +786,52 @@ def add_page_furniture(canvas, doc) -> None:
     canvas.restoreState()
 
 
-if __name__ == "__main__":
+def _load_runtime_content(content_file: Optional[str] = None, output_path: Optional[str] = None) -> None:
+    """Recharge le JSON et recalcule les variables globales pour un appel par commande.
+
+    Cette fonction permet à main.py d'appeler generate_pdf(content_file=...,
+    output_path=...) sans dépendre des valeurs chargées au moment de l'import.
+    """
+    global CONTENT_FILE, OUTPUT_PATH, REAL_CONTENT, PROJECT_INPUT, PROJECT_PROFILE
+    global CLIENT_VILLE, CLIENT_CONCEPT, CLIENT_PROJECT_NAME, SECTION_TITLES, SECTIONS_PDF
+    global PDF_ISSUES, PDF_STATUS
+
+    if content_file:
+        CONTENT_FILE = content_file
+    if output_path:
+        OUTPUT_PATH = output_path
+
+    if os.path.exists(CONTENT_FILE):
+        with open(CONTENT_FILE, "r", encoding="utf-8") as f:
+            REAL_CONTENT = json.load(f)
+        print(f"Contenu trouvé : {CONTENT_FILE}")
+    else:
+        REAL_CONTENT = {}
+        print(f"Aucun contenu JSON trouvé : {CONTENT_FILE} — PDF brouillon de diagnostic.")
+
+    PROJECT_INPUT = REAL_CONTENT.get("_project_input", {})
+    PROJECT_PROFILE = REAL_CONTENT.get("_project_profile", {})
+    CLIENT_VILLE = PROJECT_INPUT.get("zone", "Zone à préciser")
+    CLIENT_CONCEPT = PROJECT_INPUT.get("concept", "Concept à préciser")
+    CLIENT_PROJECT_NAME = PROJECT_INPUT.get("project_name", "")
+    SECTION_TITLES = REAL_CONTENT.get("_section_titles", {})
+    SECTIONS_PDF = [(sid, SECTION_TITLES.get(sid, title)) for sid, title in DEFAULT_SECTIONS_PDF]
+    PDF_ISSUES = detect_content_issues()
+    PDF_STATUS = "draft" if PDF_ISSUES else "ready"
+
+
+def generate_pdf(
+    content_file: Optional[str] = None,
+    output_path: Optional[str] = None,
+    quality_file: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Génère le PDF et retourne le diagnostic qualité.
+
+    Contrat production : cette fonction ne bloque pas pour des issues de contenu.
+    Si des problèmes sont détectés, le PDF est marqué BROUILLON - À VÉRIFIER et
+    un fichier quality_file est écrit pour permettre à main.py de composer l'email.
+    """
+    _load_runtime_content(content_file=content_file, output_path=output_path)
     doc = SimpleDocTemplate(
         OUTPUT_PATH,
         pagesize=A4,
@@ -707,4 +843,11 @@ if __name__ == "__main__":
         author=NOM_CABINET,
     )
     doc.build(build_story(), onFirstPage=add_page_furniture, onLaterPages=add_page_furniture)
+    report = export_pdf_issues(quality_file or "rapport_quality_issues.json")
     print(f"PDF généré : {OUTPUT_PATH}")
+    print(f"Statut PDF : {PDF_STATUS} — {len(PDF_ISSUES)} issue(s)")
+    return report
+
+
+if __name__ == "__main__":
+    generate_pdf()
