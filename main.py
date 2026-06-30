@@ -284,7 +284,7 @@ async def stripe_webhook(request: Request, background_tasks: BackgroundTasks):
 
     if event["type"] == "checkout.session.completed":
         session   = event["data"]["object"]
-        form_data = dict(session.get("metadata", {}))
+        form_data = dict(session["metadata"]) if session["metadata"] else {}
         background_tasks.add_task(generer_et_envoyer, form_data)
 
     return JSONResponse({"status": "ok"})
