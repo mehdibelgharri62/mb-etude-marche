@@ -270,14 +270,14 @@ def generer_et_envoyer(form_data: dict):
             quality_report=quality_report,
             generation_errors=generation_errors,
             pdf_ok=pdf_ok,
-            pieces_jointes=[pdf_path, quality_path],
+            pieces_jointes=[pdf_path],
         )
 
         # --- 4. Email envoyé dans TOUS les cas ---
         envoyer_email_final(
             subject=subject,
             body=body,
-            fichiers_a_joindre=[pdf_path, quality_path],
+            fichiers_a_joindre=[pdf_path],
         )
 
 
