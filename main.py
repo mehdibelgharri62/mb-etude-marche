@@ -150,6 +150,16 @@ def generer_et_envoyer(form_data: dict):
                 specs = [s.strip() for s in specs.split(",") if s.strip()]
             gc.PROJECT_INPUT["specificities"] = specs
 
+            # CRITIQUE : PROJECT_PROFILE est calculé au chargement du module à
+            # partir de l'ancien PROJECT_INPUT codé en dur. On vient de modifier
+            # PROJECT_INPUT juste au-dessus : il faut recalculer PROJECT_PROFILE
+            # avec les VRAIES données du formulaire, sinon le rapport généré
+            # reste basé sur l'ancien projet par défaut.
+            gc.PROJECT_INPUT_RAW = dict(gc.PROJECT_INPUT)
+            gc.PROJECT_INPUT, gc.PROJECT_INPUT_META = gc.normalize_project_input(gc.PROJECT_INPUT_RAW)
+            gc.PROJECT_PROFILE = gc.derive_project_profile(gc.PROJECT_INPUT)
+            gc.PROJECT_PROFILE["input_meta"] = gc.PROJECT_INPUT_META
+
             # Chemin du fichier JSON de contenu → dossier temporaire
             gc.CONTENT_FILE = content_file
 
