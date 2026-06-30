@@ -1,12 +1,14 @@
 """
 BACKEND FastAPI — main.py
 =========================
-Compatible avec generate_content.py V5 et generate_report.py V4.1 bis de MB Consulting.
+Compatible avec le contrat final validé pour generate_content.py et generate_report.py :
+  gc.main(project_input: dict, output_file: str | None = None) -> dict
+  gr.generate_pdf(content_file: str, output_path: str, quality_file: str | None = None) -> dict
 
 Flux :
   1. POST /submit   → reçoit le formulaire, crée session Stripe Checkout
   2. GET  /success  → page "rapport en cours"
-  3. POST /webhook  → Stripe confirme → génération PDF → email à OWNER_EMAIL (toi)
+  3. POST /webhook  → Stripe confirme → génération PDF → email TOUJOURS envoyé à OWNER_EMAIL
 
 Variables d'environnement (fichier .env en local, Render en prod) :
   GEMINI_API_KEY
@@ -23,8 +25,10 @@ import base64
 import tempfile
 import traceback
 import importlib
+import importlib.util
 import sys
 from pathlib import Path
+from datetime import datetime
 
 import stripe
 import sib_api_v3_sdk
@@ -58,67 +62,157 @@ async def index():
 
 
 # ---------------------------------------------------------------------------
-# EMAIL — envoie le PDF à OWNER_EMAIL (toi)
+# CHAMPS QUI NE DOIVENT JAMAIS ÊTRE INJECTÉS DANS LES PROMPTS DE GÉNÉRATION
+# (utilisés uniquement pour le suivi commercial / l'email admin)
 # ---------------------------------------------------------------------------
-def envoyer_pdf(pdf_path: str, form_data: dict, project_name: str):
+CHAMPS_COMMERCIAUX_EXCLUS_DU_RAPPORT = {"name", "email", "phone"}
+
+
+def construire_project_input(form_data: dict) -> dict:
+    """
+    Construit le dict project_input propre, attendu par gc.main().
+    Exclut explicitement name / email / phone (suivi commercial uniquement).
+    Convertit budget_eur en int si fourni.
+    Convertit specificities (string "a,b,c") en vraie liste.
+    """
+    project_input = {
+        k: v for k, v in form_data.items()
+        if k not in CHAMPS_COMMERCIAUX_EXCLUS_DU_RAPPORT
+    }
+
+    budget_raw = project_input.get("budget_eur", "")
+    if budget_raw and str(budget_raw).strip().isdigit():
+        project_input["budget_eur"] = int(budget_raw)
+    else:
+        project_input.pop("budget_eur", None)
+
+    specs = project_input.get("specificities", "")
+    if isinstance(specs, str):
+        specs = [s.strip() for s in specs.split(",") if s.strip()]
+    project_input["specificities"] = specs
+
+    return project_input
+
+
+# ---------------------------------------------------------------------------
+# EMAIL — TOUJOURS envoyé à OWNER_EMAIL, quel que soit le résultat
+# ---------------------------------------------------------------------------
+def construire_corps_email(
+    form_data: dict,
+    project_name: str,
+    order_id: str,
+    quality_report: dict | None,
+    generation_errors: list[str],
+    pdf_ok: bool,
+    pieces_jointes: list[str],
+) -> str:
+    statut = "RAPPORT PRÊT"
+    if not pdf_ok:
+        statut = "ERREUR GÉNÉRATION — AUCUN PDF"
+    elif quality_report and quality_report.get("status") != "ready":
+        statut = "RAPPORT À VÉRIFIER"
+    elif generation_errors:
+        statut = "RAPPORT À VÉRIFIER (erreurs partielles)"
+
+    issues = (quality_report or {}).get("issues", [])
+    if issues:
+        lignes_issues = "\n".join(
+            f"- {i.get('section_title', i.get('section_id', '?'))} "
+            f"[{i.get('severity', '?')}] : {i.get('reason', '')}"
+            for i in issues
+        )
+    else:
+        lignes_issues = "Aucun problème détecté." if pdf_ok else "—"
+
+    lignes_erreurs = "\n".join(f"- {e}" for e in generation_errors) or "Aucune."
+    lignes_pj = "\n".join(f"- {Path(p).name}" for p in pieces_jointes) or "Aucune."
+
+    return f"""Nouveau rapport généré — {project_name}
+
+Projet   : {project_name}
+Concept  : {form_data.get('concept', '')[:300]}
+Type     : {form_data.get('project_type', '')}
+Client   : {form_data.get('name', '')}
+Email    : {form_data.get('email', '')}
+Tel      : {form_data.get('phone', 'Non renseigné')}
+Stade    : {form_data.get('stage', '')}
+Objectif : {form_data.get('main_goal', '')}
+Order ID : {order_id}
+
+Statut : {statut}
+
+Problèmes détectés :
+{lignes_issues}
+
+Erreurs techniques :
+{lignes_erreurs}
+
+Pièces jointes :
+{lignes_pj}
+"""
+
+
+def envoyer_email_final(
+    subject: str,
+    body: str,
+    fichiers_a_joindre: list[str],
+):
+    """Envoie l'email admin avec toutes les pièces jointes disponibles.
+    Ne lève jamais d'exception bloquante : si Brevo échoue, on log seulement."""
     configuration = sib_api_v3_sdk.Configuration()
     configuration.api_key["api-key"] = BREVO_API_KEY
     api = sib_api_v3_sdk.TransactionalEmailsApi(
         sib_api_v3_sdk.ApiClient(configuration)
     )
 
-    with open(pdf_path, "rb") as f:
-        pdf_b64 = base64.b64encode(f.read()).decode("utf-8")
-
-    corps = f"""Nouveau rapport généré — {project_name}
-
-Client   : {form_data.get('name', '')}
-Email    : {form_data.get('email', '')}
-Tel      : {form_data.get('phone', 'Non renseigné')}
-Stade    : {form_data.get('stage', '')}
-Objectif : {form_data.get('main_goal', '')}
-Concept  : {form_data.get('concept', '')[:300]}
-
-Le rapport est en pièce jointe. Relis-le et envoie-le au client.
-"""
+    attachments = []
+    for path in fichiers_a_joindre:
+        if path and os.path.exists(path):
+            with open(path, "rb") as f:
+                attachments.append({
+                    "name": Path(path).name,
+                    "content": base64.b64encode(f.read()).decode("utf-8"),
+                })
 
     email = sib_api_v3_sdk.SendSmtpEmail(
         to=[{"email": OWNER_EMAIL}],
         sender={"email": OWNER_EMAIL, "name": "MB Consulting — Système"},
-        subject=f"[RAPPORT] {project_name} — {form_data.get('name', 'Client')}",
-        text_content=corps,
-        attachment=[{
-            "name": f"etude_marche_{project_name.replace(' ', '_')[:40]}.pdf",
-            "content": pdf_b64,
-        }],
+        subject=subject,
+        text_content=body,
+        attachment=attachments if attachments else None,
     )
     try:
         api.send_transac_email(email)
-        print(f"✅ Email envoyé à {OWNER_EMAIL}")
+        print(f"✅ Email envoyé à {OWNER_EMAIL} ({len(attachments)} pièce(s) jointe(s))")
     except ApiException as e:
         print(f"❌ Erreur Brevo : {e}")
 
 
 # ---------------------------------------------------------------------------
 # GÉNÉRATION — tourne en background après confirmation Stripe
+# Respecte le contrat : gc.main(project_input, output_file=...)
+#                       gr.generate_pdf(content_file, output_path, quality_file)
+# Envoie TOUJOURS un email, quoi qu'il arrive.
 # ---------------------------------------------------------------------------
 def generer_et_envoyer(form_data: dict):
-    """
-    1. Injecte les données du formulaire dans PROJECT_INPUT de generate_content.py
-    2. Lance la génération Gemini section par section
-    3. Lance la génération PDF
-    4. Envoie le PDF par email à OWNER_EMAIL
-    Tout tourne dans un dossier temporaire isolé pour chaque commande.
-    """
     project_name = form_data.get("project_name", "Projet client")
+    order_id = form_data.get("stripe_session_id") or datetime.utcnow().strftime("%Y%m%d%H%M%S")
+
+    content_ok = False
+    pdf_ok = False
+    generation_errors: list[str] = []
+    quality_report: dict | None = None
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        content_file = str(tmpdir / "contenu_genere_v5.json")
-        output_pdf   = str(tmpdir / "etude_de_marche_V5.pdf")
+        content_path = str(tmpdir / f"contenu_{order_id}.json")
+        pdf_path      = str(tmpdir / f"rapport_{order_id}.pdf")
+        quality_path  = str(tmpdir / f"quality_{order_id}.json")
 
+        project_input = construire_project_input(form_data)
+
+        # --- 1. Génération du contenu ---
         try:
-            # --- Charger generate_content en module frais ---
             spec = importlib.util.spec_from_file_location(
                 "generate_content_tmp",
                 Path(__file__).parent / "generate_content.py"
@@ -127,100 +221,64 @@ def generer_et_envoyer(form_data: dict):
             sys.modules["generate_content_tmp"] = gc
             spec.loader.exec_module(gc)
 
-            # --- Injecter les données du formulaire dans PROJECT_INPUT ---
-            gc.PROJECT_INPUT["concept"]          = form_data.get("concept", "")
-            gc.PROJECT_INPUT["project_type"]     = form_data.get("project_type", "projet_hybride")
-            gc.PROJECT_INPUT["zone"]             = form_data.get("zone", "France")
-            gc.PROJECT_INPUT["target_customer"]  = form_data.get("target_customer", "")
-            gc.PROJECT_INPUT["main_offer"]       = form_data.get("main_offer", "")
-            gc.PROJECT_INPUT["revenue_model"]    = form_data.get("revenue_model", "")
-            gc.PROJECT_INPUT["additional_context"] = form_data.get("additional_context", "")
-            gc.PROJECT_INPUT["stage"]            = form_data.get("stage", "")
-
-            # Budget : convertit en int si renseigné
-            budget_raw = form_data.get("budget_eur", "")
-            if budget_raw and str(budget_raw).strip().isdigit():
-                gc.PROJECT_INPUT["budget_eur"] = int(budget_raw)
-            else:
-                gc.PROJECT_INPUT.pop("budget_eur", None)
-
-            # Spécificités : peut être une liste ou une string séparée par virgules
-            specs = form_data.get("specificities", "")
-            if isinstance(specs, str):
-                specs = [s.strip() for s in specs.split(",") if s.strip()]
-            gc.PROJECT_INPUT["specificities"] = specs
-
-            # CRITIQUE : PROJECT_PROFILE est calculé au chargement du module à
-            # partir de l'ancien PROJECT_INPUT codé en dur. On vient de modifier
-            # PROJECT_INPUT juste au-dessus : il faut recalculer PROJECT_PROFILE
-            # avec les VRAIES données du formulaire, sinon le rapport généré
-            # reste basé sur l'ancien projet par défaut.
-            gc.PROJECT_INPUT_RAW = dict(gc.PROJECT_INPUT)
-            gc.PROJECT_INPUT, gc.PROJECT_INPUT_META = gc.normalize_project_input(gc.PROJECT_INPUT_RAW)
-            gc.PROJECT_PROFILE = gc.derive_project_profile(gc.PROJECT_INPUT)
-            gc.PROJECT_PROFILE["input_meta"] = gc.PROJECT_INPUT_META
-
-            # Chemin du fichier JSON de contenu → dossier temporaire
-            gc.CONTENT_FILE = content_file
-
-            # --- Lancer la génération du contenu ---
-            gc.main()
-
-            # --- Charger generate_report en module frais ---
-            spec2 = importlib.util.spec_from_file_location(
-                "generate_report_tmp",
-                Path(__file__).parent / "generate_report.py"
-            )
-            gr = importlib.util.module_from_spec(spec2)
-
-            # Surcharge des chemins avant exec_module
-            # (generate_report lit CONTENT_FILE et OUTPUT_PATH au niveau module)
-            import generate_report as gr_orig
-            gr_orig.CONTENT_FILE = content_file
-            gr_orig.OUTPUT_PATH  = output_pdf
-
-            # Recharge le contenu JSON dans le module
-            with open(content_file, "r", encoding="utf-8") as f:
-                gr_orig.REAL_CONTENT = json.load(f)
-
-            gr_orig.PROJECT_INPUT  = gr_orig.REAL_CONTENT.get("_project_input", {})
-            gr_orig.PROJECT_PROFILE = gr_orig.REAL_CONTENT.get("_project_profile", {})
-            gr_orig.CLIENT_VILLE   = gr_orig.PROJECT_INPUT.get("zone", "Zone à préciser")
-            gr_orig.CLIENT_CONCEPT = gr_orig.PROJECT_INPUT.get("concept", "Concept à préciser")
-            gr_orig.SECTION_TITLES = gr_orig.REAL_CONTENT.get("_section_titles", {})
-            gr_orig.SECTIONS_PDF   = [
-                (sid, gr_orig.SECTION_TITLES.get(sid, title))
-                for sid, title in gr_orig.DEFAULT_SECTIONS_PDF
-            ]
-
-            # --- Générer le PDF ---
-            from reportlab.platypus import SimpleDocTemplate
-            from reportlab.lib.pagesizes import A4
-            from reportlab.lib.units import cm
-
-            doc = SimpleDocTemplate(
-                output_pdf,
-                pagesize=A4,
-                topMargin=1.75 * cm,
-                bottomMargin=2.15 * cm,
-                leftMargin=2 * cm,
-                rightMargin=2 * cm,
-                title=f"Étude de marché - {gr_orig.CLIENT_CONCEPT}",
-                author="MB Consulting",
-            )
-            doc.build(
-                gr_orig.build_story(),
-                onFirstPage=gr_orig.add_page_furniture,
-                onLaterPages=gr_orig.add_page_furniture,
-            )
-            print(f"✅ PDF généré : {output_pdf}")
-
-            # --- Envoyer le PDF par email ---
-            envoyer_pdf(output_pdf, form_data, project_name)
-
+            gc.main(project_input, output_file=content_path)
+            content_ok = True
+            print("✅ Contenu généré")
         except Exception as e:
-            print(f"❌ Erreur génération : {e}")
+            generation_errors.append(f"Erreur generate_content.py : {type(e).__name__} - {e}")
+            print(f"❌ Erreur génération contenu : {e}")
             traceback.print_exc()
+
+        # --- 2. Génération du PDF — tentée même si le contenu est partiel ---
+        if os.path.exists(content_path):
+            try:
+                spec2 = importlib.util.spec_from_file_location(
+                    "generate_report_tmp",
+                    Path(__file__).parent / "generate_report.py"
+                )
+                gr = importlib.util.module_from_spec(spec2)
+                sys.modules["generate_report_tmp"] = gr
+                spec2.loader.exec_module(gr)
+
+                quality_report = gr.generate_pdf(
+                    content_file=content_path,
+                    output_path=pdf_path,
+                    quality_file=quality_path,
+                )
+                pdf_ok = os.path.exists(pdf_path)
+                print(f"✅ PDF généré : {pdf_path}" if pdf_ok else "❌ PDF non créé")
+            except Exception as e:
+                generation_errors.append(f"Erreur generate_report.py : {type(e).__name__} - {e}")
+                print(f"❌ Erreur génération PDF : {e}")
+                traceback.print_exc()
+        else:
+            generation_errors.append("Aucun fichier de contenu disponible : generate_content.py n'a produit aucune sortie exploitable.")
+
+        # --- 3. Objet email selon le statut réel ---
+        if not pdf_ok:
+            subject_prefix = "[ERREUR GÉNÉRATION]"
+        elif quality_report and quality_report.get("status") == "ready" and not generation_errors:
+            subject_prefix = "[RAPPORT PRÊT]"
+        else:
+            subject_prefix = "[RAPPORT À VÉRIFIER]"
+
+        subject = f"{subject_prefix} Étude de marché - {project_name}"
+        body = construire_corps_email(
+            form_data=form_data,
+            project_name=project_name,
+            order_id=order_id,
+            quality_report=quality_report,
+            generation_errors=generation_errors,
+            pdf_ok=pdf_ok,
+            pieces_jointes=[pdf_path, quality_path],
+        )
+
+        # --- 4. Email envoyé dans TOUS les cas ---
+        envoyer_email_final(
+            subject=subject,
+            body=body,
+            fichiers_a_joindre=[pdf_path, quality_path],
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -274,7 +332,7 @@ async def submit_form(
         line_items=[{"price": PRICE_ID, "quantity": 1}],
         mode="payment",
         success_url="https://mb-etude-marche.onrender.com/success",
-cancel_url="https://mb-etude-marche.onrender.com/cancel",
+        cancel_url="https://mb-etude-marche.onrender.com/cancel",
         customer_email=email,
         metadata=metadata,
     )
@@ -296,6 +354,7 @@ async def stripe_webhook(request: Request, background_tasks: BackgroundTasks):
     if event["type"] == "checkout.session.completed":
         session   = event["data"]["object"]
         form_data = dict(session["metadata"]) if session["metadata"] else {}
+        form_data["stripe_session_id"] = session.get("id", "")
         background_tasks.add_task(generer_et_envoyer, form_data)
 
     return JSONResponse({"status": "ok"})
