@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Étude de marché sur mesure — MB Consulting</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Raleway:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy: #1B2A4A;
+      --gold: #B8913A;
+      --gold-light: #D4A84B;
+      --cream: #FAFAF7;
+      --white: #FFFFFF;
+      --text: #1B2A4A;
+      --muted: #6B7B8D;
+      --border: #DDE3EA;
+      --input-bg: #FFFFFF;
+    }
+    body { font-family: 'Raleway', sans-serif; background: var(--cream); color: var(--text); line-height: 1.6; }
+
+    header { background: var(--navy); padding: 1.5rem 2rem; display: flex; align-items: center; justify-content: center; border-bottom: 2px solid var(--gold); }
+    .logo-wrap { display: flex; align-items: center; gap: 1.2rem; }
+    .logo-mb { font-family: 'Cormorant Garamond', serif; font-size: 2.8rem; font-weight: 700; color: var(--white); line-height: 1; letter-spacing: -0.02em; }
+    .logo-divider { width: 1px; height: 48px; background: var(--gold); }
+    .logo-right { display: flex; flex-direction: column; gap: 2px; }
+    .logo-consulting { font-family: 'Raleway', sans-serif; font-size: 1rem; font-weight: 700; color: var(--white); letter-spacing: 0.2em; text-transform: uppercase; }
+    .logo-tagline { font-family: 'Raleway', sans-serif; font-size: 0.65rem; font-weight: 500; color: var(--gold-light); letter-spacing: 0.15em; text-transform: uppercase; }
+
+    .hero { background: var(--navy); color: var(--white); text-align: center; padding: 3.5rem 2rem 4rem; }
+    .hero-eyebrow { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.25em; text-transform: uppercase; color: var(--gold-light); margin-bottom: 1.25rem; }
+    .hero h1 { font-family: 'Cormorant Garamond', serif; font-size: clamp(2rem, 5vw, 3rem); font-weight: 600; line-height: 1.15; max-width: 600px; margin: 0 auto 1.25rem; }
+    .hero p { font-size: 0.95rem; color: rgba(255,255,255,0.65); max-width: 480px; margin: 0 auto 2rem; line-height: 1.7; }
+    .price-badge { display: inline-flex; align-items: center; gap: 0.5rem; border: 1.5px solid var(--gold); color: var(--gold-light); font-family: 'Cormorant Garamond', serif; font-size: 1.5rem; font-weight: 600; padding: 0.5rem 2rem; }
+    .price-badge small { font-family: 'Raleway', sans-serif; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: rgba(255,255,255,0.5); }
+
+    .container { max-width: 740px; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
+
+    form { background: var(--white); border: 1px solid var(--border); padding: 2.75rem 2.5rem; }
+
+    .section-label { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gold); margin-bottom: 1.75rem; padding-bottom: 0.6rem; border-bottom: 1px solid var(--gold); display: flex; align-items: center; gap: 0.75rem; }
+    .section-label::before { content: ''; display: inline-block; width: 3px; height: 14px; background: var(--gold); }
+
+    .form-group { margin-bottom: 1.6rem; }
+
+    label { display: block; font-size: 0.8rem; font-weight: 700; color: var(--navy); margin-bottom: 0.45rem; letter-spacing: 0.04em; text-transform: uppercase; }
+    label .req { color: var(--gold); margin-left: 2px; }
+    label .opt { font-weight: 400; color: var(--muted); font-size: 0.72rem; text-transform: none; letter-spacing: 0; margin-left: 4px; }
+
+    input[type="text"], input[type="email"], input[type="tel"], input[type="number"], select, textarea {
+      width: 100%; padding: 0.75rem 1rem; border: 1.5px solid var(--border); border-radius: 0;
+      font-size: 0.95rem; font-weight: 500; color: var(--text); background: var(--input-bg);
+      font-family: 'Raleway', sans-serif; transition: border-color 0.2s; appearance: none;
+    }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--gold); }
+    select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23B8913A' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 1rem center; padding-right: 2.5rem; cursor: pointer; }
+    textarea { resize: vertical; min-height: 100px; }
+    .helper { font-size: 0.75rem; color: var(--muted); margin-top: 0.4rem; font-weight: 400; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+    @media (max-width: 560px) { .grid-2 { grid-template-columns: 1fr; } form { padding: 2rem 1.25rem; } }
+
+    .sep { border: none; border-top: 1px solid var(--border); margin: 2.25rem 0; }
+
+    .check-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+    @media (max-width: 480px) { .check-grid { grid-template-columns: 1fr; } }
+    .check-item { display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.65rem 0.85rem; border: 1.5px solid var(--border); cursor: pointer; transition: border-color 0.2s, background 0.2s; font-size: 0.82rem; font-weight: 500; line-height: 1.4; }
+    .check-item:hover { border-color: var(--gold); }
+    .check-item input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--navy); flex-shrink: 0; margin-top: 2px; }
+    .check-item:has(input:checked) { border-color: var(--navy); background: #F0F3F8; }
+
+    .submit-wrap { margin-top: 2.25rem; text-align: center; }
+    button[type="submit"] { background: var(--navy); color: var(--white); font-family: 'Raleway', sans-serif; font-weight: 700; font-size: 0.82rem; letter-spacing: 0.18em; text-transform: uppercase; padding: 1.1rem 3rem; border: 2px solid var(--navy); cursor: pointer; width: 100%; max-width: 420px; transition: background 0.2s, color 0.2s; }
+    button[type="submit"]:hover { background: transparent; color: var(--navy); }
+    .submit-note { margin-top: 0.85rem; font-size: 0.75rem; color: var(--muted); }
+
+    .guarantees { display: flex; gap: 1.5rem; justify-content: center; flex-wrap: wrap; margin-top: 2rem; padding-top: 1.75rem; border-top: 1px solid var(--border); }
+    .guarantee-item { display: flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; font-weight: 600; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+    .guarantee-dot { width: 5px; height: 5px; background: var(--gold); border-radius: 50%; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-wrap">
+    <div class="logo-mb">MB</div>
+    <div class="logo-divider"></div>
+    <div class="logo-right">
+      <div class="logo-consulting">Consulting</div>
+      <div class="logo-tagline">Formateur · Consultant</div>
+    </div>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="hero-eyebrow">Analyse stratégique personnalisée</div>
+  <h1>Votre étude de marché sur mesure, livrée en moins d'une heure</h1>
+  <p>Remplissez le formulaire ci-dessous. Notre système génère une analyse complète de votre projet et vous la livre par email.</p>
+  <div class="price-badge">59 € <small>— paiement unique</small></div>
+</div>
+
+<div class="container">
+  <form action="/submit" method="POST">
+
+    <div class="section-label">Vos coordonnées</div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label for="name">Nom et prénom <span class="req">*</span></label>
+        <input type="text" id="name" name="name" required placeholder="Jean Dupont">
+      </div>
+      <div class="form-group">
+        <label for="email">Email <span class="req">*</span></label>
+        <input type="email" id="email" name="email" required placeholder="jean@exemple.fr">
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label for="project_name">Nom du projet <span class="req">*</span></label>
+        <input type="text" id="project_name" name="project_name" required placeholder="Ex : La Bicyclette Gourmande">
+      </div>
+      <div class="form-group">
+        <label for="phone">Téléphone <span class="opt">(optionnel)</span></label>
+        <input type="tel" id="phone" name="phone" placeholder="06 00 00 00 00">
+        <p class="helper">Si vous souhaitez un débrief stratégique</p>
+      </div>
+    </div>
+
+    <hr class="sep">
+    <div class="section-label">Votre projet</div>
+
+    <div class="form-group">
+      <label for="concept">Décrivez votre projet <span class="req">*</span></label>
+      <textarea id="concept" name="concept" required placeholder="Ex : agence spécialisée dans l'automatisation IA pour les PME — audit des processus, création d'agents simples, formation des équipes..."></textarea>
+      <p class="helper">Soyez précis — plus vous décrivez votre concept, plus l'analyse sera pertinente.</p>
+    </div>
+
+    <div class="grid-2">
+      <div class="form-group">
+        <label for="project_type">Type de projet <span class="req">*</span></label>
+        <select id="project_type" name="project_type" required>
+          <option value="" disabled selected>— Choisir —</option>
+          <option value="commerce_local">Commerce local / boutique physique</option>
+          <option value="ecommerce">E-commerce / vente en ligne</option>
+          <option value="service_b2b">Service aux entreprises / B2B</option>
+          <option value="service_b2c_local">Service aux particuliers / local</option>
+          <option value="restauration_alimentaire">Restauration / alimentaire</option>
+          <option value="artisanat_production">Artisanat / fabrication / production</option>
+          <option value="saas_application">Application / SaaS / outil numérique</option>
+          <option value="projet_hybride">Projet hybride / autre</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="stage">Stade d'avancement <span class="req">*</span></label>
+        <select id="stage" name="stage" required>
+          <option value="" disabled selected>— Choisir —</option>
+          <option value="idee">J'ai seulement l'idée</option>
+          <option value="preparation">Je prépare le lancement</option>
+          <option value="deja_lance">Le projet est déjà lancé</option>
+          <option value="repositionnement">Je veux repositionner l'activité</option>
+          <option value="developpement">Je veux développer une activité existante</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="zone">Zone géographique ou marché ciblé <span class="req">*</span></label>
+      <input type="text" id="zone" name="zone" required placeholder="Ex : Lille et métropole, France entière en ligne, Hauts-de-France…">
+    </div>
+
+    <div class="grid-2">
+      <div class="form-group">
+        <label for="target_customer">Clients cibles <span class="req">*</span></label>
+        <input type="text" id="target_customer" name="target_customer" required placeholder="Ex : dirigeants de PME, étudiants, familles…">
+      </div>
+      <div class="form-group">
+        <label for="main_offer">Produits ou services vendus <span class="req">*</span></label>
+        <input type="text" id="main_offer" name="main_offer" required placeholder="Ex : formations, prestations au forfait, produits physiques…">
+      </div>
+    </div>
+
+    <hr class="sep">
+    <div class="section-label">Modèle économique</div>
+
+    <div class="grid-2">
+      <div class="form-group">
+        <label for="budget_eur">Budget de lancement estimé <span class="opt">(optionnel)</span></label>
+        <input type="number" id="budget_eur" name="budget_eur" placeholder="Ex : 15000" min="0">
+        <p class="helper">En euros. Laissez vide si vous ne savez pas encore.</p>
+      </div>
+      <div class="form-group">
+        <label for="revenue_model">Comment générerez-vous vos revenus ? <span class="opt">(optionnel)</span></label>
+        <input type="text" id="revenue_model" name="revenue_model" placeholder="Ex : abonnement, vente unitaire, commission…">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Spécificités du projet <span class="opt">(optionnel — plusieurs choix possibles)</span></label>
+      <div class="check-grid">
+        <label class="check-item"><input type="checkbox" name="specificities" value="local_erp"> Local physique / emplacement important</label>
+        <label class="check-item"><input type="checkbox" name="specificities" value="digital_acquisition"> Acquisition digitale / réseaux / SEO</label>
+        <label class="check-item"><input type="checkbox" name="specificities" value="stock_matiere"> Stock, matières premières ou logistique</label>
+        <label class="check-item"><input type="checkbox" name="specificities" value="service_humain"> Prestation humaine / conseil / accompagnement</label>
+        <label class="check-item"><input type="checkbox" name="specificities" value="reglementation"> Réglementation, normes ou contraintes légales</label>
+        <label class="check-item"><input type="checkbox" name="specificities" value="investissement_lourd"> Investissement de départ important</label>
+      </div>
+    </div>
+
+    <hr class="sep">
+    <div class="section-label">Objectif et contexte</div>
+
+    <div class="form-group">
+      <label for="main_goal">Objectif prioritaire <span class="opt">(optionnel)</span></label>
+      <select id="main_goal" name="main_goal">
+        <option value="">— Choisir —</option>
+        <option value="valider_idee">Valider l'idée</option>
+        <option value="comprendre_marche">Comprendre le marché</option>
+        <option value="analyser_concurrence">Analyser la concurrence</option>
+        <option value="definir_offre_prix">Définir l'offre et les prix</option>
+        <option value="plan_lancement">Construire un plan de lancement</option>
+        <option value="preparer_financement">Préparer un financement</option>
+        <option value="developper_ventes">Développer les ventes</option>
+        <option value="rassurer_avant_invest">Me rassurer avant d'investir</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="additional_context">Informations complémentaires <span class="opt">(optionnel)</span></label>
+      <textarea id="additional_context" name="additional_context" placeholder="Contraintes, concurrents connus, idée de positionnement, doutes particuliers…"></textarea>
+    </div>
+
+    <div class="submit-wrap">
+      <button type="submit">Payer 59 € et générer mon étude</button>
+      <p class="submit-note">Paiement sécurisé par Stripe · Rapport livré par email sous 30 à 60 minutes</p>
+    </div>
+
+    <div class="guarantees">
+      <div class="guarantee-item"><div class="guarantee-dot"></div> Paiement sécurisé</div>
+      <div class="guarantee-item"><div class="guarantee-dot"></div> PDF 40–70 pages</div>
+      <div class="guarantee-item"><div class="guarantee-dot"></div> Livraison sous 1h</div>
+      <div class="guarantee-item"><div class="guarantee-dot"></div> Données confidentielles</div>
+    </div>
+
+  </form>
+</div>
+</body>
+</html>

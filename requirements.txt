@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+stripe
+sib-api-v3-sdk
+python-multipart
+requests
+reportlab
