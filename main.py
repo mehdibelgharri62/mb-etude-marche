@@ -33,8 +33,8 @@ from datetime import datetime
 import stripe
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
-from fastapi import FastAPI, Request, Form, BackgroundTasks
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from fastapi import FastAPI, Request, Form, BackgroundTasks, HTTPException
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 
@@ -59,6 +59,20 @@ app.mount("/static", StaticFiles(directory="."), name="static")
 async def index():
     with open("index.html", encoding="utf-8") as f:
         return f.read()
+
+
+@app.get("/extrait-gratuit-etude-marche.pdf")
+async def telecharger_extrait_gratuit():
+    pdf_path = Path(__file__).parent / "extrait-gratuit-etude-marche.pdf"
+
+    if not pdf_path.exists():
+        raise HTTPException(status_code=404, detail="PDF extrait gratuit introuvable")
+
+    return FileResponse(
+        path=pdf_path,
+        media_type="application/pdf",
+        filename="extrait-gratuit-etude-marche.pdf"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -117,11 +131,9 @@ def construire_corps_email(
     issues = (quality_report or {}).get("issues", [])
     if issues:
         lignes_issues = "\n".join(
-    f"- {i.get('section_title', i.get('section_id', '?'))} "
-    f"[{i.get('severity', '?')}] : {i.get('reason', '')}"
-    if isinstance(i, dict)
-    else f"- {str(i)}"
-    for i in issues
+            f"- {i.get('section_title', i.get('section_id', '?'))} "
+            f"[{i.get('severity', '?')}] : {i.get('reason', '')}"
+            for i in issues
         )
     else:
         lignes_issues = "Aucun problème détecté." if pdf_ok else "—"
@@ -161,33 +173,41 @@ def envoyer_email_final(
 ):
     """Envoie l'email admin avec toutes les pièces jointes disponibles.
     Ne lève jamais d'exception bloquante : si Brevo échoue, on log seulement."""
-    configuration = sib_api_v3_sdk.Configuration()
-    configuration.api_key["api-key"] = BREVO_API_KEY
-    api = sib_api_v3_sdk.TransactionalEmailsApi(
-        sib_api_v3_sdk.ApiClient(configuration)
-    )
-
-    attachments = []
-    for path in fichiers_a_joindre:
-        if path and os.path.exists(path):
-            with open(path, "rb") as f:
-                attachments.append({
-                    "name": Path(path).name,
-                    "content": base64.b64encode(f.read()).decode("utf-8"),
-                })
-
-    email = sib_api_v3_sdk.SendSmtpEmail(
-        to=[{"email": OWNER_EMAIL}],
-        sender={"email": OWNER_EMAIL, "name": "MB Consulting — Système"},
-        subject=subject,
-        text_content=body,
-        attachment=attachments if attachments else None,
-    )
     try:
+        print(f"📧 Préparation email Brevo : {subject}")
+
+        configuration = sib_api_v3_sdk.Configuration()
+        configuration.api_key["api-key"] = BREVO_API_KEY
+        api = sib_api_v3_sdk.TransactionalEmailsApi(
+            sib_api_v3_sdk.ApiClient(configuration)
+        )
+
+        attachments = []
+        for path in fichiers_a_joindre:
+            if path and os.path.exists(path):
+                print(f"📎 Pièce jointe ajoutée : {path}")
+                with open(path, "rb") as f:
+                    attachments.append({
+                        "name": Path(path).name,
+                        "content": base64.b64encode(f.read()).decode("utf-8"),
+                    })
+
+        email = sib_api_v3_sdk.SendSmtpEmail(
+            to=[{"email": OWNER_EMAIL}],
+            sender={"email": OWNER_EMAIL, "name": "MB Consulting — Système"},
+            subject=subject,
+            text_content=body,
+            attachment=attachments if attachments else None,
+        )
+
+        print(f"📨 Envoi Brevo en cours vers {OWNER_EMAIL}...")
         api.send_transac_email(email)
         print(f"✅ Email envoyé à {OWNER_EMAIL} ({len(attachments)} pièce(s) jointe(s))")
-    except ApiException as e:
-        print(f"❌ Erreur Brevo : {e}")
+
+    except Exception as e:
+        print(f"❌ Erreur email/Brevo : {type(e).__name__} - {e}")
+        traceback.print_exc()
+
 
 
 # ---------------------------------------------------------------------------
