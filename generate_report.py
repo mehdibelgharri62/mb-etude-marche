@@ -606,18 +606,22 @@ def real_section_flowables(markdown_text: str, section_title: str = "", section_
 # ----------------------------------------------------------------------------
 
 FORBIDDEN_PATTERNS = [
+    # Placeholders client-visibles très probables.
     r"\[[A-Za-zÀ-ÿ ]{1,30}\]",
-    r"\bX\s*(prises de contact|RDV|rendez-vous|contrats|nouveaux leads|leads|clients|ventes|euros|€|%)",
-    r"\bX\s*(milliers|millions|milliards|%)",
-    r"\bY\s*(milliers|millions|milliards|%)",
-    r"\bZ\s*(milliers|millions|milliards|%)",
+    r"\bX\s*(prises de contact|RDV|rendez-vous|contrats|nouveaux leads|leads|clients|ventes|euros)\b",
+    r"\bX\s*(milliers|millions|milliards)\b",
+    r"\bY\s*(milliers|millions|milliards)\b",
+    r"\bZ\s*(milliers|millions|milliards)\b",
     r"à compléter",
     r"TODO",
     r"Cette section n['’]a pas pu être générée",
+    # Fuites de prompt / consignes internes.
     r"Color know the following code snippet",
     r"Code Snippet provides additional context",
     r"complete the analysis on existing input",
     r"user is asking to complete",
+    r"existing input",
+    r"continue from where",
     r"Do not regenerate",
 ]
 
@@ -657,12 +661,27 @@ PDF_ISSUES: List[str] = detect_content_issues()
 PDF_STATUS = "draft" if PDF_ISSUES else "ready"
 
 
+def _issue_to_object(issue: str) -> Dict[str, Any]:
+    section_title = "Général"
+    reason = issue
+    if " : " in issue:
+        section_title, reason = issue.split(" : ", 1)
+    severity = "warning"
+    low = reason.lower()
+    if any(marker in low for marker in ["fuite", "interdit", "placeholder", "section manquante", "échec", "tronqué", "aucun contenu"]):
+        severity = "blocking"
+    elif any(marker in low for marker in ["répar", "markdown", "tableau", "source trop vague"]):
+        severity = "repairable"
+    return {"section_title": section_title, "severity": severity, "reason": reason}
+
+
 def export_pdf_issues(path: str = "rapport_quality_issues.json") -> Dict[str, Any]:
     """Écrit et retourne un diagnostic lisible par main.py pour composer l'objet/corps d'email."""
     payload = {
         "status": PDF_STATUS,
         "email_subject_prefix": "[RAPPORT À VÉRIFIER]" if PDF_ISSUES else "[RAPPORT PRÊT]",
         "issues": PDF_ISSUES,
+        "issues_detailed": [_issue_to_object(issue) for issue in PDF_ISSUES],
         "issues_count": len(PDF_ISSUES),
         "output_path": OUTPUT_PATH,
         "content_file": CONTENT_FILE,
