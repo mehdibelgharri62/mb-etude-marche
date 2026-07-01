@@ -76,6 +76,8 @@
 
     .form-intro { margin-bottom: 1.2rem; }
     .form-intro p { color: var(--muted); font-size: 0.95rem; }
+    .fine-print { margin-top: 0.75rem; color: var(--muted); font-size: 0.8rem; line-height: 1.55; }
+    .fine-print strong { color: var(--navy); }
     .price-line { display: inline-flex; margin-top: 0.95rem; padding: 0.55rem 0.85rem; border-radius: 999px; border: 1px solid #E8D6AD; color: var(--navy); background: #FFFCF5; font-size: 0.86rem; font-weight: 800; }
 
     form { background: var(--white); border: 1px solid var(--border); border-radius: 22px; box-shadow: var(--shadow); padding: clamp(1.35rem, 4vw, 2.35rem); }
@@ -101,6 +103,15 @@
     button[type="submit"] { background: var(--navy); color: var(--white); font-family: 'Raleway', sans-serif; font-weight: 800; font-size: 0.86rem; letter-spacing: 0.16em; text-transform: uppercase; padding: 1.05rem 2rem; border: 2px solid var(--navy); border-radius: 999px; cursor: pointer; width: 100%; max-width: 430px; transition: background 0.2s, color 0.2s, transform 0.2s; }
     button[type="submit"]:hover { background: transparent; color: var(--navy); transform: translateY(-1px); }
     .submit-note { margin-top: 0.85rem; font-size: 0.78rem; color: var(--muted); }
+    .legal-zone { margin-top: 1.55rem; text-align: left; border: 1px solid #E8D6AD; background: #FFFCF5; border-radius: 16px; padding: 1rem; }
+    .legal-zone details { border-bottom: 1px solid rgba(201,145,43,0.22); padding-bottom: 0.8rem; margin-bottom: 0.9rem; }
+    .legal-zone summary { cursor: pointer; font-weight: 800; color: var(--navy); font-size: 0.9rem; letter-spacing: 0.02em; }
+    .legal-content { margin-top: 0.8rem; color: var(--muted); font-size: 0.78rem; line-height: 1.55; max-height: 260px; overflow: auto; padding-right: 0.35rem; }
+    .legal-content h3 { font-family: 'Raleway', sans-serif; color: var(--navy); font-size: 0.82rem; margin: 0.75rem 0 0.25rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    .legal-content p { margin-bottom: 0.45rem; }
+    .legal-content strong { color: var(--navy); }
+    .legal-check { display: flex; align-items: flex-start; gap: 0.65rem; margin-top: 0.75rem; color: var(--navy); font-size: 0.82rem; font-weight: 700; line-height: 1.45; text-transform: none; letter-spacing: 0; }
+    .legal-check input { margin-top: 0.2rem; width: 16px; height: 16px; accent-color: var(--navy); flex-shrink: 0; }
     .guarantees { display: flex; gap: 1rem 1.4rem; justify-content: center; flex-wrap: wrap; margin-top: 1.8rem; padding-top: 1.4rem; border-top: 1px solid var(--border); }
     .guarantee-item { display: flex; align-items: center; gap: 0.45rem; font-size: 0.77rem; font-weight: 700; color: var(--muted); letter-spacing: 0.03em; text-transform: uppercase; }
     .guarantee-dot { width: 6px; height: 6px; background: var(--gold); border-radius: 50%; flex-shrink: 0; }
@@ -127,17 +138,19 @@
       <div class="eyebrow">Étude de marché personnalisée</div>
       <h1>Recevez une étude de marché claire et structurée</h1>
       <div class="hero-question">Vous avez une idée de business, un commerce à ouvrir, une agence à lancer ou une activité à repositionner&nbsp;?</div>
-      <p class="hero-copy">À partir de vos réponses, MB Consulting génère un <strong>rapport professionnel</strong> pour analyser votre marché, votre concurrence, votre positionnement, vos hypothèses financières et vos priorités de lancement. L’objectif&nbsp;: vous aider à <strong>prendre les bonnes décisions</strong>.</p>
+      <p class="hero-copy">À partir de vos réponses et d’un appel de cadrage, MB Consulting conçoit une <strong>étude de marché personnalisée</strong> pour analyser votre marché, votre concurrence, votre positionnement, vos hypothèses financières et vos priorités de lancement. L’objectif&nbsp;: vous aider à <strong>prendre les bonnes décisions</strong>.</p>
       <div class="facts">
-        <span>Rapport détaillé : <strong>30 à 35 pages</strong> en moyenne</span>
+        <span>Appel de cadrage <strong>sous 12h</strong></span>
         <span class="fact-dot"></span>
-        <span>Livraison <strong>sous 12h maximum</strong></span>
+        <span>Étude livrée <strong>sous 72h</strong></span>
+        <span class="fact-dot"></span>
+        <span>Rapport PDF <strong>jusqu’à 40 pages</strong></span>
       </div>
       <div class="hero-actions">
         <a href="extrait-gratuit-etude-marche.pdf" class="btn btn-secondary" target="_blank" rel="noopener" download>Télécharger un extrait gratuit</a>
         <a href="#formulaire" class="btn btn-primary">Commander mon étude</a>
       </div>
-      <p class="hero-note">Plus vos réponses sont précises, plus l’étude sera personnalisée.</p>
+      <p class="hero-note">L’étude respecte les grandes thématiques présentées sur cette page. L’appel de cadrage sert à mieux comprendre votre projet et à ajuster l’angle de l’analyse.</p>
     </div>
   </section>
 
@@ -164,13 +177,15 @@
         <p class="section-intro">Le rapport ne se limite pas à une description générale : il structure les décisions clés à prendre avant de lancer, financer ou repositionner votre projet.</p>
         <div class="summary-grid">
           <div class="summary-item"><div class="summary-num">1</div><div><strong>Synthèse décisionnelle</strong><span>Verdict, opportunités, risques et priorités.</span></div></div>
-          <div class="summary-item"><div class="summary-num">2</div><div><strong>Marché &amp; demande</strong><span>Lecture du marché, zone utile et signaux à valider.</span></div></div>
-          <div class="summary-item"><div class="summary-num">3</div><div><strong>Concurrence &amp; benchmark</strong><span>Acteurs, alternatives et différenciation possible.</span></div></div>
-          <div class="summary-item"><div class="summary-num">4</div><div><strong>Positionnement</strong><span>Promesse, cible, angle stratégique et preuves de valeur.</span></div></div>
-          <div class="summary-item"><div class="summary-num">5</div><div><strong>Offre &amp; prix</strong><span>Packs, revenus, tarification et modèle économique.</span></div></div>
-          <div class="summary-item"><div class="summary-num">6</div><div><strong>Hypothèses financières</strong><span>Coûts, point mort, scénarios et indicateurs clés.</span></div></div>
-          <div class="summary-item"><div class="summary-num">7</div><div><strong>MVP (test terrain) &amp; validation</strong><span>Tester une version simplifiée du projet avant d’investir davantage.</span></div></div>
-          <div class="summary-item"><div class="summary-num">8</div><div><strong>Plan d’action 90 jours</strong><span>Priorités marketing, commerciales et opérationnelles.</span></div></div>
+          <div class="summary-item"><div class="summary-num">2</div><div><strong>Concept &amp; hypothèses</strong><span>Périmètre du projet, cible, offre et contraintes de départ.</span></div></div>
+          <div class="summary-item"><div class="summary-num">3</div><div><strong>Points critiques à sécuriser</strong><span>Réglementation, outils, compétences, charges et leviers commerciaux selon le projet.</span></div></div>
+          <div class="summary-item"><div class="summary-num">4</div><div><strong>Marché &amp; demande</strong><span>Lecture du marché, zone utile, signaux et données à valider.</span></div></div>
+          <div class="summary-item"><div class="summary-num">5</div><div><strong>Concurrence &amp; benchmark</strong><span>Acteurs, alternatives et différenciation possible.</span></div></div>
+          <div class="summary-item"><div class="summary-num">6</div><div><strong>Positionnement</strong><span>Promesse, cible, angle stratégique et preuves de valeur.</span></div></div>
+          <div class="summary-item"><div class="summary-num">7</div><div><strong>Offre &amp; prix</strong><span>Sources de revenus, tarification et logique commerciale.</span></div></div>
+          <div class="summary-item"><div class="summary-num">8</div><div><strong>Coûts &amp; modèle économique</strong><span>Charges, économies possibles, point mort et scénarios financiers.</span></div></div>
+          <div class="summary-item"><div class="summary-num">9</div><div><strong>MVP (test terrain) &amp; validation</strong><span>Tester une version simplifiée du projet avant d’investir davantage.</span></div></div>
+          <div class="summary-item"><div class="summary-num">10</div><div><strong>Plan d’action 90 jours</strong><span>Priorités marketing, commerciales et opérationnelles.</span></div></div>
         </div>
       </div>
     </section>
@@ -198,7 +213,8 @@
       <div class="form-intro panel">
         <div class="section-kicker">Commande</div>
         <h2>Renseignez votre projet</h2>
-        <p>Le formulaire ci-dessous permet de générer une étude personnalisée. Le rapport est ensuite généré, analysé et enrichi par MB Consulting, puis livré par email sous 12h maximum.</p>
+        <p>Le formulaire ci-dessous permet de préparer votre étude. Après paiement, MB Consulting vous recontacte sous 12h pour cadrer votre projet, comprendre vos priorités et ajuster l’angle de l’analyse. Un SMS pourra être envoyé afin de vérifier vos disponibilités. L’étude de marché est ensuite conçue puis livrée par email sous 72h, sous réserve de la réalisation de l’appel de cadrage et de la réception des informations nécessaires.</p>
+        <p class="fine-print"><strong>*</strong> L’appel de cadrage sert à préciser les informations nécessaires à l’étude. Il ne constitue pas un appel de consulting approfondi. Le suivi du projet ou un accompagnement complémentaire peuvent être proposés sur demande.</p>
       </div>
 
       <form action="/submit" method="POST">
@@ -222,7 +238,7 @@
         <div class="form-group">
           <label for="phone">Téléphone <span class="req">*</span></label>
           <input type="tel" id="phone" name="phone" required placeholder="06 00 00 00 00">
-          <p class="helper">Nécessaire pour vous contacter en cas de précision utile sur votre projet.</p>
+          <p class="helper">Nécessaire pour réaliser l’appel de cadrage et vous recontacter rapidement après commande.</p>
         </div>
       </div>
 
@@ -231,8 +247,8 @@
 
       <div class="form-group">
         <label for="concept">Décrivez votre projet <span class="req">*</span></label>
-        <textarea id="concept" name="concept" required minlength="120" placeholder="Ex : agence spécialisée dans l'automatisation IA pour les PME — audit des processus, création d'agents simples, formation des équipes..."></textarea>
-        <p class="helper">Minimum 120 caractères. Décrivez ce que vous voulez vendre, à qui, où, avec quelles contraintes, quels concurrents connus et quel objectif. Plus vous êtes précis, plus l'analyse sera personnalisée.</p>
+        <textarea id="concept" name="concept" required minlength="150" placeholder="Ex : agence spécialisée dans l'automatisation IA pour les PME — audit des processus, création d'agents simples, formation des équipes..."></textarea>
+        <p class="helper">Minimum 150 caractères. Décrivez ce que vous voulez vendre, à qui, où, avec quelles contraintes, quels concurrents connus et quel objectif. Plus vous êtes précis, plus l'analyse sera personnalisée.</p>
       </div>
 
       <div class="grid-2">
@@ -265,20 +281,20 @@
 
       <div class="form-group">
         <label for="zone">Zone géographique ou marché ciblé <span class="req">*</span></label>
-        <input type="text" id="zone" name="zone" required minlength="3" placeholder="Ex : Lille et métropole, France entière en ligne, Hauts-de-France…">
-        <p class="helper">Minimum 3 caractères. Indiquez la ville, région, pays ou marché en ligne ciblé.</p>
+        <input type="text" id="zone" name="zone" required minlength="2" placeholder="Ex : Lille, métropole lilloise, France entière en ligne, Hauts-de-France…">
+        <p class="helper">Indiquez la ville, région, pays ou marché en ligne ciblé.</p>
       </div>
 
       <div class="grid-2">
         <div class="form-group">
           <label for="target_customer">Clients cibles <span class="req">*</span></label>
-          <input type="text" id="target_customer" name="target_customer" required minlength="20" placeholder="Ex : dirigeants de PME, étudiants, familles…">
-          <p class="helper">Minimum 20 caractères. Précisez le profil, les besoins, les freins et le contexte d'achat.</p>
+          <input type="text" id="target_customer" name="target_customer" required minlength="80" placeholder="Ex : dirigeants de PME, étudiants, familles…">
+          <p class="helper">Minimum 80 caractères. Précisez le profil, les besoins, les freins et le contexte d'achat.</p>
         </div>
         <div class="form-group">
           <label for="main_offer">Produits ou services vendus <span class="req">*</span></label>
-          <input type="text" id="main_offer" name="main_offer" required minlength="20" placeholder="Ex : formations, prestations au forfait, produits physiques…">
-          <p class="helper">Minimum 20 caractères. Décrivez vos produits, services, packs, prix envisagés ou sources de revenus.</p>
+          <input type="text" id="main_offer" name="main_offer" required minlength="80" placeholder="Ex : formations, prestations au forfait, produits physiques…">
+          <p class="helper">Minimum 80 caractères. Décrivez vos produits, services, packs, prix envisagés ou sources de revenus.</p>
         </div>
       </div>
 
@@ -333,16 +349,57 @@
         <p class="helper">Optionnel. Si vous le remplissez, minimum 100 caractères : concurrents connus, contraintes, ressources disponibles, doutes, objectifs ou éléments déjà testés.</p>
       </div>
 
+      <div class="legal-zone">
+        <details>
+          <summary>Lire les Conditions Générales de Vente</summary>
+          <div class="legal-content">
+            <p><strong>Conditions Générales de Vente — Étude de marché personnalisée MB Consulting</strong></p>
+            <h3>1. Prestataire</h3>
+            <p>La prestation est proposée par <strong>MB Consulting — Mehdi Belgharri</strong>, SIRET <strong>79170674000028</strong>. Contact : <strong>contact@mbconsulting-formation.fr</strong>.</p>
+            <h3>2. Objet de la prestation</h3>
+            <p>MB Consulting réalise une étude de marché personnalisée, incluant une analyse du projet, du marché, de la concurrence, des coûts, des risques, des points critiques à sécuriser et des premières actions de lancement. Le rapport est livré au format PDF, jusqu’à 40 pages selon la nature du projet.</p>
+            <h3>3. Appel de cadrage</h3>
+            <p>Après commande, MB Consulting recontacte le client sous 12h afin d’organiser ou réaliser un appel de cadrage. Un SMS peut être envoyé pour vérifier les disponibilités. Cet appel sert à préciser les informations nécessaires à l’étude et à ajuster l’angle d’analyse ; il ne constitue pas un appel de consulting approfondi.</p>
+            <h3>4. Prix et paiement</h3>
+            <p>Le prix de la prestation est de <strong>79 € net de TVA</strong>. Le paiement est réalisé en ligne via Stripe. La commande est prise en compte après confirmation du paiement.</p>
+            <h3>5. Délais de livraison</h3>
+            <p>L’étude est livrée par email sous <strong>72h après l’appel de cadrage</strong> et sous réserve que le client ait fourni les informations nécessaires. En cas de forte demande, ce délai peut être prolongé de 72h supplémentaires ; le client en est alors informé par email, téléphone ou SMS.</p>
+            <h3>6. Informations transmises par le client</h3>
+            <p>Le client s’engage à fournir des informations sincères, suffisamment précises et exploitables. La qualité de l’étude dépend directement des éléments transmis dans le formulaire et lors de l’appel de cadrage.</p>
+            <h3>7. Limites de la prestation</h3>
+            <p>L’étude constitue une aide à la décision. Elle ne garantit ni chiffre d’affaires, ni rentabilité, ni obtention de financement, ni succès commercial. Elle ne remplace pas un conseil juridique, fiscal, comptable, financier ou réglementaire spécialisé. Le suivi du projet ou un accompagnement complémentaire peuvent être proposés sur demande.</p>
+            <h3>8. Droit de rétractation et exécution de la prestation</h3>
+            <p>Le client peut demander l’exécution de la prestation avant la fin du délai légal de rétractation. Une fois l’étude pleinement réalisée et livrée, le client reconnaît ne plus pouvoir exercer son droit de rétractation pour cette prestation déjà exécutée.</p>
+            <h3>9. Annulation et remboursement</h3>
+            <p>Si la prestation n’a pas commencé, une demande d’annulation peut être étudiée. Si l’appel de cadrage ou la production de l’étude a commencé, les sommes peuvent rester dues au prorata du travail engagé. Après livraison complète de l’étude, aucun remboursement n’est dû lorsque le client a demandé l’exécution immédiate de la prestation.</p>
+            <h3>10. Livraison, facture et données personnelles</h3>
+            <p>Le rapport est livré à l’adresse email indiquée par le client. Un reçu de paiement peut être émis par Stripe et une facture peut être transmise sur demande. Les données collectées servent uniquement au traitement de la commande, à l’appel de cadrage, à la réalisation de l’étude et aux échanges avec le client. Elles ne sont pas revendues.</p>
+            <h3>11. Litiges</h3>
+            <p>En cas de difficulté, le client est invité à contacter MB Consulting en priorité afin de rechercher une solution amiable. Les informations relatives au médiateur de la consommation compétent pourront être communiquées conformément aux obligations applicables.</p>
+          </div>
+        </details>
+
+        <label class="legal-check">
+          <input type="checkbox" name="cgv_accepted" required>
+          <span>J’ai lu et j’accepte les Conditions Générales de Vente.</span>
+        </label>
+        <label class="legal-check">
+          <input type="checkbox" name="execution_immediate" required>
+          <span>Je demande l’exécution de la prestation avant la fin du délai légal de rétractation et je reconnais qu’une fois l’étude pleinement réalisée et livrée, je ne pourrai plus exercer ce droit.</span>
+        </label>
+      </div>
+
       <div class="submit-wrap">
-        <button type="submit">Commander mon étude</button>
-        <p class="submit-note">Paiement unique de 59 € · Paiement sécurisé par Stripe · Rapport généré puis analysé et enrichi par MB Consulting · Livraison sous 12h maximum</p>
+        <button type="submit">Commander mon étude — 79 €</button>
+        <p class="submit-note">Paiement unique de 79 € net de TVA · Paiement sécurisé par Stripe · Appel de cadrage sous 12h · Étude livrée sous 72h après cadrage</p>
       </div>
 
       <div class="guarantees">
         <div class="guarantee-item"><div class="guarantee-dot"></div> Paiement sécurisé</div>
-        <div class="guarantee-item"><div class="guarantee-dot"></div> Rapport détaillé</div>
-        <div class="guarantee-item"><div class="guarantee-dot"></div> Livraison sous 12h</div>
+        <div class="guarantee-item"><div class="guarantee-dot"></div> Appel de cadrage inclus</div>
+        <div class="guarantee-item"><div class="guarantee-dot"></div> Étude livrée sous 72h après cadrage</div>
         <div class="guarantee-item"><div class="guarantee-dot"></div> Données confidentielles</div>
+        <div class="guarantee-item"><div class="guarantee-dot"></div> Suivi sur demande</div>
       </div>
 
     </form>
