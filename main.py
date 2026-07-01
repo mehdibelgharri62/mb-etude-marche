@@ -131,11 +131,19 @@ def construire_corps_email(
 
     issues = (quality_report or {}).get("issues", [])
     if issues:
-        lignes_issues = "\n".join(
-            f"- {i.get('section_title', i.get('section_id', '?'))} "
-            f"[{i.get('severity', '?')}] : {i.get('reason', '')}"
-            for i in issues
-        )
+        def format_issue(i):
+    if isinstance(i, dict):
+        titre = i.get("section_title") or i.get("section_id") or "Section non précisée"
+        severity = i.get("severity") or "info"
+        reason = i.get("reason") or i.get("message") or ""
+        return f"- {titre} [{severity}] : {reason}".strip()
+    return f"- {str(i)}"
+
+if issues:
+    lignes_issues = "\n".join(format_issue(i) for i in issues)
+else:
+    lignes_issues = "Aucun problème détecté."
+  
     else:
         lignes_issues = "Aucun problème détecté." if pdf_ok else "—"
 
