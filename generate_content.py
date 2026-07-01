@@ -458,6 +458,10 @@ RÈGLES ABSOLUES DE SORTIE :
 - N'utilise pas de tableaux pour tout : texte court + tableaux seulement quand ils clarifient une comparaison, une décision, une hypothèse, un risque ou une action.
 - Les signaux issus d'avis publics concurrents doivent être formulés prudemment : "certains avis consultables mentionnent", "signal faible", "signal récurrent apparent". Ne cite pas de longs verbatims.
 - Qualifie mieux les sources : utilise si possible des labels comme source institutionnelle, étude sectorielle, source professionnelle, analyse concurrentielle, sites concurrents, avis publics, Google/Maps/annuaires, données macro à vérifier, hypothèse de travail. Si le nom de l’organisme est disponible, cite-le brièvement (ex : INRS, DARES, Bpifrance, France Num, CCI, Xerfi, Wavestone, Google Maps).
+- Quand un tableau comporte une colonne Source, Fiabilité, Niveau de preuve ou s'appuie explicitement sur des données de recherche, ajoute juste après le tableau un mini-bloc "Sources / vérifications utiles" de 2 à 5 puces maximum. Pas de bibliographie longue, pas de liens inventés : indique les organismes, plateformes, devis ou recherches concrètes à vérifier.
+- Évite les redites : si un point critique a déjà été détaillé dans la section pilote, les sections suivantes doivent seulement le réutiliser sous leur angle propre (coût, organisation, validation terrain, acquisition, décision), sans recopier la même explication.
+- Les tableaux doivent rester simples : 3 à 4 colonnes maximum. Ne crée pas de tableaux méthodologiques à 5 ou 6 colonnes. Les réserves, limites et risques doivent plutôt être mis en 3 à 5 lignes sous le tableau.
+- Le rapport peut être plus dense si cela rend l'étude plus utile, mais il ne doit pas rallonger artificiellement : réduire les paragraphes génériques au profit de décisions concrètes, options réalistes et actions vérifiables.
 """.strip()
 
 SYSTEM_PROMPT = (
@@ -485,6 +489,8 @@ RÈGLES DE STRUCTURE :
 - Le but n'est pas de remplir : chaque bloc doit apporter un angle différent.
 - Ne répète pas longuement les constats déjà traités dans les autres sections.
 - Si tu rappelles une idée déjà établie, fais-le en une phrase maximum.
+- L'analyse doit rester adaptée au projet réel : ne force pas un sujet non pertinent (local, agrément, stock, RH, logiciel, réglementation, fournisseurs, etc.).
+- Quand un point critique est identifié, il doit guider les parties coûts, opérations, MVP, marketing et verdict, sans créer de doublons.
 """.strip()
 
 # ----------------------------------------------------------------------------
@@ -651,8 +657,9 @@ def build_search_prompts(project: Dict[str, Any], profile: Dict[str, Any]) -> Di
     if RESEARCH_MODE in {"standard", "premium"}:
         prompts["prix_contraintes"] = (
             base
-            + "\nFais une recherche web courte, avec 1 à 3 requêtes maximum, sur les repères utiles de prix, coûts, réglementation ou contraintes pratiques. "
-            + "Retour attendu : uniquement les éléments qui changent les hypothèses, les risques ou le plan d'action, avec source-label qualifié ou statut de preuve. Évite la formule vague 'source web trouvée' seule. "
+            + "\nFais une recherche web courte, avec 1 à 3 requêtes maximum, sur les repères utiles de prix, coûts, réglementation, contraintes pratiques, outils, matériel, local, prestataires, fournisseurs, partenaires ou moyens humains si ces sujets sont pertinents pour ce projet. "
+            + "Retour attendu : uniquement les éléments qui changent les hypothèses, les risques, les points critiques ou le plan d'action, avec source-label qualifié ou statut de preuve. Évite la formule vague 'source web trouvée' seule. "
+            + "Ne force pas un sujet non pertinent : pour un projet digital sans local, privilégie les outils, l'infrastructure numérique, l'acquisition et le support ; pour un commerce ou service physique, privilégie local, matériel, conformité, fournisseurs et charges fixes. "
             + "Tout élément incertain doit être marqué 'à vérifier'."
         )
     if RESEARCH_MODE == "premium":
@@ -720,19 +727,48 @@ SECTIONS: List[Section] = [
         """,
     ),
     Section(
+        "s03_points_critiques_lancement",
+        "Points critiques à sécuriser avant lancement",
+        "prix_contraintes",
+        2,
+        """
+        Cette section est une section pilote : elle doit identifier les sujets concrets qui peuvent vraiment bloquer, ralentir ou fragiliser le lancement. Elle doit ensuite servir de base aux sections hypothèses, opérations, modèle économique, scénarios, MVP, marketing et verdict.
+
+        Règle d'adaptation obligatoire :
+        - Identifier seulement les 3 à 6 points réellement pertinents pour ce projet.
+        - Ne crée pas de sous-section vide.
+        - Ne force pas un bloc réglementation, local, stock, RH, outils ou fournisseurs si ce point n'a pas d'intérêt pour le projet.
+        - Si le projet est digital ou sans local, remplace la logique de local par infrastructure numérique, outils, paiement, sécurité, acquisition et support.
+        - Si le projet peut être lancé seul, ne crée pas de recrutement artificiel : précise plutôt les compétences clés à maîtriser, les limites du solo et les prestataires ponctuels utiles.
+        - Si le projet nécessite des personnes, prestataires, fournisseurs ou partenaires, détaille les profils, contraintes, coûts à vérifier et risques de dépendance.
+
+        Blocs obligatoires, à adapter au projet :
+        1) ## Lecture rapide des points critiques : 6 lignes maximum. Explique ce qui peut faire échouer le lancement au-delà de la demande commerciale.
+        2) ## Autorisations, réglementation, normes ou agréments : uniquement si pertinent. Sinon indique en 1 phrase que ce n'est pas un point bloquant apparent. Si pertinent, tableau obligatoire : Point à vérifier | Démarche ou interlocuteur | Coût / délai à anticiper | Prudence. Mentionne les démarches probables, documents ou validations à rechercher, sans conseil juridique définitif.
+        3) ## Local, infrastructure, outils, logiciels ou matériel : tableau obligatoire : Besoin concret | Options possibles | Coût à vérifier | Option prudente. Adapte : local physique, salle ponctuelle, équipement, stock, logiciel, site, paiement, hébergement, sécurité, outil métier, matériel de production, selon le projet. Si local pertinent, évoque surface/capacité/accessibilité seulement si utile.
+        4) ## Ressources humaines, compétences, prestataires, fournisseurs ou partenaires : tableau obligatoire : Ressource ou compétence | Rôle | Option possible | Point de vigilance. Dire clairement si le projet peut être lancé seul. Si oui, préciser compétences à maîtriser et limites. Si non, préciser profils nécessaires, options de statut/prestation, coût à anticiper et difficulté probable.
+        5) ## Charges à limiter et économies possibles : tableau obligatoire : Dépense ou charge | Risque | Alternative plus légère | À vérifier. Distingue dépenses indispensables, dépenses reportables et charges fixes dangereuses. Cherche les moyens réalistes de démarrer sans surinvestir.
+        6) ## Leviers réels de développement des ventes : tableau obligatoire : Levier | Pourquoi il est pertinent | Première action | Indicateur. Évite les banalités du type "faire les réseaux sociaux". Privilégie selon le projet : prescripteurs, partenariats, référencement local, plateformes spécialisées, Google Business Profile, avis clients, offre de lancement, prospection directe, contenu utile, relance, bouche-à-oreille organisé.
+        7) ## Priorités immédiates avant de payer, signer, recruter ou investir : 3 à 5 puces maximum. Ce sont les vérifications à faire avant d'engager de l'argent ou de créer des charges fixes.
+
+        Sources : ne crée pas ici de gros bloc sources. Quand une donnée ou un signal vient de la recherche, utilise un label dans le texte ou ajoute un mini-bloc "Sources / vérifications utiles" après le tableau concerné.
+        Contexte recherche : {contexte}
+        """,
+    ),
+    Section(
         "s03_hypotheses_chiffrees",
         "Dictionnaire unique des hypothèses chiffrées",
         None,
         2,
         """
         Cette section verrouille les chiffres. Les autres sections financières devront les reprendre sans les régénérer.
-        Adapte les variables selon les spécificités cochées, mais reste compact.
+        Adapte les variables selon les spécificités cochées et selon les points critiques identifiés juste avant. Reste compact, mais évite les chiffres génériques déconnectés du projet.
         Blocs obligatoires :
         1) ## Rôle du dictionnaire : 5 lignes maximum.
-        2) Tableau obligatoire : Variable | Valeur retenue | Statut | Utilisation. 8 lignes maximum. Inclure budget, investissement initial, trésorerie, charges fixes, panier moyen ou prix moyen, volume d'activité.
+        2) Tableau obligatoire : Variable | Valeur retenue | Statut | Utilisation. 8 lignes maximum. Inclure budget, investissement initial, trésorerie, charges fixes, panier moyen ou prix moyen, volume d'activité. Les variables doivent intégrer les coûts réellement structurants du projet : autorisation, local, outil, stock, matériel, prestataire, RH, acquisition client ou fournisseur seulement si pertinent.
         3) Si stock/matières cochés : ajouter 3 lignes maximum sur coût matière, marge brute et rotation de stock. Sinon ne pas inventer ces lignes.
         4) Si service humain coché : ajouter 3 lignes maximum sur temps vendu, capacité mensuelle et prix prestation. Sinon ne pas inventer ces lignes.
-        5) ## Points à vérifier avant de figer les chiffres : 5 puces maximum.
+        5) ## Chiffres à vérifier en priorité : 5 puces maximum. Cible les 3 à 5 chiffres qui peuvent réellement changer la décision : charge fixe, investissement initial, prix acceptable, coût d'acquisition, coût prestataire/fournisseur, capacité ou volume.
         Chaque valeur non sourcée doit être explicitement marquée "hypothèse de travail à vérifier".
         """,
     ),
@@ -826,14 +862,16 @@ SECTIONS: List[Section] = [
         "concurrence",
         8,
         """
-        L'offre doit exploiter les opportunités de différenciation observées dans la concurrence et les avis.
+        L'offre doit exploiter les opportunités de différenciation observées dans la concurrence et les avis, mais aussi rester réalisable avec les contraintes opérationnelles et financières identifiées.
+        Ne crée pas de packs artificiels si cela ne correspond pas au projet. Privilégie une offre de lancement simple, vendable rapidement, et cohérente avec la capacité réelle du porteur.
         Blocs obligatoires :
         1) ## Logique d'offre : 6 lignes maximum.
-        2) Tableau obligatoire : Offre | Client cible | Prix indicatif | Rôle business. 8 lignes maximum. Inclure si pertinent une offre découverte, une offre standard, une offre premium, un pack/coffret ou une option récurrente.
-        3) ## Logique de prix : 8 lignes maximum. Tous les prix non sourcés doivent être hypothèses à vérifier. Distingue prix unitaire, panier moyen et offre pack si nécessaire.
+        2) Tableau obligatoire : Offre | Client cible | Prix indicatif | Intérêt business. 8 lignes maximum. Inclure uniquement les offres pertinentes : offre de lancement, offre cœur, option premium, récurrence ou complément si cela a du sens.
+        3) ## Logique de prix : 8 lignes maximum. Tous les prix non sourcés doivent être hypothèses à vérifier. Distingue prix unitaire, panier moyen et offre pack si nécessaire. Relie le prix aux coûts critiques quand c'est important.
         4) Tableau obligatoire : Source de revenus | Potentiel | Point de vigilance. 6 lignes maximum.
-        5) ## Ajustements issus de la concurrence : 4 puces maximum, reliées aux irritants/prix/attentes repérés.
-        6) ## À vérifier terrain : 5 puces.
+        5) ## Offre à lancer en premier : 4 lignes maximum. Explique l'offre la plus prudente pour tester la demande sans complexifier le lancement.
+        6) ## Ajustements issus de la concurrence : 4 puces maximum, reliées aux irritants/prix/attentes repérés.
+        7) ## À vérifier terrain : 5 puces.
         Contexte recherche : {contexte}
         """,
     ),
@@ -843,15 +881,16 @@ SECTIONS: List[Section] = [
         "marche_demande",
         9,
         """
-        Adapte uniquement cette section selon les spécificités : local, digital, stock, service, réglementation.
+        Adapte cette section selon les spécificités : local, digital, stock, service, réglementation, outils, prestataires ou fournisseurs.
+        Cette section ne doit pas répéter toute la section pilote : elle doit montrer comment délivrer concrètement l'offre.
         Blocs obligatoires :
         1) ## Pourquoi l'opérationnel est critique : 6 à 8 lignes.
-        2) Tableau obligatoire : Critère | Niveau d'importance | Risque si absent. 8 lignes max.
-        3) Si local_erp : inclure visibilité, flux, surface, accessibilité, normes d'accueil du public.
-        4) Si digital_acquisition : inclure site, landing page, paiement, tracking, conversion, dépendance plateformes.
+        2) Tableau obligatoire : Élément opérationnel | Choix conseillé | Risque si négligé | À vérifier. 8 lignes max. Les lignes doivent être concrètes : local ou absence de local, outil, logiciel, matériel, stock, fournisseur, prestataire, planning, paiement, livraison, SAV, conformité, selon pertinence.
+        3) Si local_erp : inclure visibilité, flux, surface/capacité, accessibilité et contraintes d'accueil du public, mais sans redire tout le bloc réglementaire.
+        4) Si digital_acquisition : inclure site, landing page, paiement, tracking, conversion, dépendance plateformes, support client ou sécurité si pertinent.
         5) Si stock_matiere : inclure approvisionnement, stockage, pertes, rotation, fournisseurs.
-        6) Si reglementation : inclure autorisations/normes à vérifier sans donner de conseil juridique définitif.
-        7) Si reglementation : ajoute un court avertissement indiquant que les éléments réglementaires ne remplacent pas une validation juridique, administrative ou technique spécialisée.
+        6) Si reglementation : inclure autorisations/normes à vérifier sans donner de conseil juridique définitif, puis ajoute un court avertissement indiquant que les éléments réglementaires ne remplacent pas une validation juridique, administrative ou technique spécialisée.
+        7) ## Option la plus légère pour démarrer : 5 lignes maximum. Expliquer comment réduire le risque opérationnel avant un engagement lourd.
         8) ## Checklist opérationnelle : 6 puces maximum.
         9) ## Erreur fatale à éviter : 5 lignes maximum.
         Contexte recherche : {contexte}
@@ -864,12 +903,14 @@ SECTIONS: List[Section] = [
         10,
         """
         Reprends les hypothèses de la section 3 sans inventer de nouveaux montants.
+        Ne produis pas une structure de coûts générique : les charges doivent correspondre au projet réel et aux points critiques identifiés.
         Blocs obligatoires :
         1) ## Comment le projet gagne de l'argent : 8 lignes maximum.
         2) Tableau obligatoire : Activité | Revenu | Coûts principaux | Levier de marge. 6 lignes maximum.
-        3) Tableau obligatoire : Type de coût | Exemples | Impact. 6 lignes maximum.
-        4) ## Synergies économiques : 8 lignes maximum.
-        5) ## Fragilités du modèle : 4 à 6 puces.
+        3) Tableau obligatoire : Type de coût | Exemples | Impact. 6 lignes maximum. Distingue au minimum investissement initial, charges fixes, charges variables et acquisition client si pertinent.
+        4) ## Pistes pour limiter les charges au démarrage : 4 à 6 puces concrètes. Privilégier charges variables plutôt que fixes, location/mutualisation plutôt qu'achat, sous-traitance ponctuelle, dépenses reportables, test avant bail/recrutement/stock/outils coûteux si pertinent.
+        5) ## Synergies économiques : 6 lignes maximum.
+        6) ## Fragilités du modèle : 4 à 6 puces.
         """,
     ),
     Section(
@@ -879,7 +920,8 @@ SECTIONS: List[Section] = [
         11,
         """
         Section à forte variante selon le modèle financier, mais le format reste unique.
-        Reprends les hypothèses de la section 3. Ne crée pas de nouveaux chiffres contradictoires. Si tu dois introduire un repère absent, marque-le clairement "nouvelle hypothèse à vérifier".
+        Reprends les hypothèses de la section 3 et les charges concrètes identifiées, pas des charges génériques. Ne crée pas de nouveaux chiffres contradictoires. Si tu dois introduire un repère absent, marque-le clairement "nouvelle hypothèse à vérifier".
+        Exprime les volumes dans l'unité réelle du projet : clients, commandes, sessions, abonnements, prestations, paniers, devis signés, participants, ventes, etc.
         Blocs obligatoires :
         1) ## Avertissement sur les scénarios : 5 lignes maximum.
         2) Tableau obligatoire STRICTEMENT À 4 COLONNES : Scénario | Hypothèses clés | Résultat estimé | Lecture / décision. 3 lignes : prudent, réaliste, ambitieux. Ne crée jamais de tableau à 5 colonnes. N'utilise jamais <br> dans une cellule : fais des phrases courtes.
@@ -898,10 +940,11 @@ SECTIONS: List[Section] = [
         12,
         """
         MVP doit être défini immédiatement à sa première apparition.
+        Le MVP ne doit pas être théorique : il doit proposer des tests peu coûteux réalisables avant gros investissement, adaptés aux points critiques du projet.
         Les tests doivent intégrer les irritants concurrents/avis quand ils existent : prix, délai, choix, packaging, intensité, qualité, rassurance, preuve, expérience d'achat. Pour un projet innovant ou peu comparable, teste surtout : compréhension de l'offre, intensité du problème, disposition à payer, alternatives actuelles et preuve attendue.
         Blocs obligatoires :
         1) ## Pourquoi tester avant d'investir : 8 lignes maximum.
-        2) Tableau obligatoire : Test | Durée | Signal attendu | Décision associée. 7 lignes maximum.
+        2) Tableau obligatoire : Test | Durée | Signal attendu | Décision associée. 7 lignes maximum. Les tests doivent valider la demande, le prix, la capacité à livrer l'offre et les coûts critiques avant de signer, acheter, recruter ou louer.
         3) ## Tests de différenciation à intégrer : 4 puces maximum, reliées à la concurrence ou aux avis clients publics si disponibles.
         4) ## Méthode de collecte : 6 lignes maximum.
         5) ## Seuils de validation : 5 puces maximum. Les seuils non sourcés sont hypothèses de travail.
@@ -915,12 +958,14 @@ SECTIONS: List[Section] = [
         13,
         """
         Le calendrier ne doit pas devenir une section géante.
+        Les actions doivent viser les premières ventes, pas seulement la visibilité. Évite les conseils vagues type "faire les réseaux sociaux" sans dire pourquoi, où et pour quel objectif.
         Blocs obligatoires :
         1) ## Stratégie de lancement : 8 lignes maximum.
-        2) Tableau obligatoire : Cible | Message | Canal. 5 lignes maximum.
+        2) Tableau obligatoire : Cible | Message | Canal. 5 lignes maximum. Les canaux doivent être crédibles selon le projet : référencement local, plateformes spécialisées, prescripteurs, partenariats, prospection, contenu, avis clients, offre de lancement, relance.
         3) Tableau obligatoire : Période | Objectif | Actions clés | Indicateur. 5 lignes : J-60 à J-30, J-30 à J-7, ouverture, J+7 à J+30, J+30 à J+90.
         4) ## Contenus prioritaires : 8 puces maximum.
-        5) ## Priorité marketing : 4 lignes maximum.
+        5) ## Leviers de vente à activer en priorité : 3 à 5 puces concrètes, adaptées au projet.
+        6) ## Priorité marketing : 4 lignes maximum.
         Contexte recherche : {contexte}
         """,
     ),
@@ -930,16 +975,17 @@ SECTIONS: List[Section] = [
         ("marche_demande", "concurrence", "prix_contraintes"),
         14,
         """
-        Génère cette section après les sections 2 à 14. Elle doit conclure, pas réouvrir l'analyse.
-        Le verdict doit faire remonter les conditions critiques : différenciation réelle, concurrence ou alternatives, CAC/prix/marge, conformité/réglementation si applicable, validation terrain/MVP. Si peu de concurrents directs ont été identifiés, rappelle que cela augmente l'incertitude et renforce la nécessité de valider la demande.
+        Génère cette section après les sections 2 à 15. Elle doit conclure, pas réouvrir l'analyse.
+        Le verdict doit faire remonter les conditions critiques identifiées dans la section pilote : différenciation réelle, concurrence ou alternatives, CAC/prix/marge, conformité/réglementation si applicable, charges fixes, local/outils/matériel, RH/prestataires/fournisseurs si pertinents, validation terrain/MVP. Si peu de concurrents directs ont été identifiés, rappelle que cela augmente l'incertitude et renforce la nécessité de valider la demande.
         Blocs obligatoires :
         1) ## Verdict final : 6 à 8 lignes avec Go / Go sous conditions / Pivot / No-Go.
         2) Tableau obligatoire : Risque | Gravité | Prévention. 5 risques maximum.
         3) Tableau obligatoire : Condition | Seuil minimal | Décision si non atteint. 6 lignes maximum.
         4) ## Conditions de différenciation à prouver : 3 puces maximum, issues du benchmark/avis/MVP.
-        5) ## Plan d'action 30 jours : 5 puces.
-        6) ## Plan d'action 90 jours : 5 puces.
-        7) ## Ce qui reste à vérifier : 5 puces maximum.
+        5) ## Conditions du Go : 3 puces maximum. Ce sont les points à sécuriser avant d'investir davantage.
+        6) ## Plan d'action 30 jours : 5 puces.
+        7) ## Plan d'action 90 jours : 5 puces.
+        8) ## Ce qui reste à vérifier : 5 puces maximum.
         Aucun nouveau chiffre non présent dans le dictionnaire ou les sections précédentes.
         Contexte recherche : {contexte}
         """,
@@ -949,6 +995,7 @@ SECTIONS: List[Section] = [
 DISPLAY_ORDER = [
     "s01_synthese_decisionnelle",
     "s02_concept_perimetre",
+    "s03_points_critiques_lancement",
     "s03_hypotheses_chiffrees",
     "s04_demande_acces_marche",
     "s05_tendances_utiles",
@@ -1181,6 +1228,11 @@ def build_section_prompt(section: Section, contextes: Dict[str, str], resultats:
         previous_summary = "\n\nRÉSUMÉ DES SECTIONS DÉJÀ GÉNÉRÉES À RESPECTER :\n" + summarize_previous_sections(resultats)
 
     priority_context = ""
+    # Section pilote : elle doit guider les hypothèses, coûts, opérations, MVP, marketing et verdict sans doublons.
+    if section.id in {"s03_hypotheses_chiffrees", "s09_offre_prix_revenus", "s10_operations_contraintes", "s11_modele_economique", "s12_scenarios_financiers", "s13_validation_mvp", "s14_marketing_90j", "s15_verdict_plan_action", "s01_synthese_decisionnelle"} and resultats.get("s03_points_critiques_lancement", {}).get("texte"):
+        priority_context += "\n\nPOINTS CRITIQUES PILOTES À RÉUTILISER SANS RÉPÉTER :\n" + resultats["s03_points_critiques_lancement"]["texte"][:4500]
+        priority_context += "\n\nConsigne : reprends ces points seulement sous l'angle de la section demandée. Ne recopie pas la même explication."
+
     # Cohérence financière : section 12 doit reprendre le dictionnaire, pas inventer.
     if section.id in {"s11_modele_economique", "s12_scenarios_financiers", "s15_verdict_plan_action"} and resultats.get("s03_hypotheses_chiffrees", {}).get("texte"):
         priority_context += "\n\nDICTIONNAIRE FINANCIER À RESPECTER STRICTEMENT :\n" + resultats["s03_hypotheses_chiffrees"]["texte"][:3500]
@@ -1311,6 +1363,15 @@ def main(raw_project: Optional[Dict[str, Any]] = None, output_file: Optional[str
         cout_tokens = (COMPTEUR["tokens_in"] / 1_000_000 * 0.30) + (COMPTEUR["tokens_out"] / 1_000_000 * 2.50)
         cout_recherche = COMPTEUR["requetes_recherche"] * 0.035
         cout_total_usd = cout_tokens + cout_recherche
+        resultats["_cout_api_estime"] = {
+            "tokens_in": COMPTEUR["tokens_in"],
+            "tokens_out": COMPTEUR["tokens_out"],
+            "requetes_recherche": COMPTEUR["requetes_recherche"],
+            "cout_tokens_usd": round(cout_tokens, 6),
+            "cout_recherche_usd": round(cout_recherche, 6),
+            "cout_total_usd": round(cout_total_usd, 6),
+        }
+        sauvegarder(resultats)
         print("\n--- Estimation coût interne, à ne jamais mettre dans le PDF ---")
         print(f"Tokens entrée/sortie : {COMPTEUR['tokens_in']} / {COMPTEUR['tokens_out']}")
         print(f"Requêtes recherche web : {COMPTEUR['requetes_recherche']}")

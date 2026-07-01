@@ -68,6 +68,7 @@ SECTION_TITLES = REAL_CONTENT.get("_section_titles", {})
 DEFAULT_SECTIONS_PDF: List[Tuple[str, str]] = [
     ("s01_synthese_decisionnelle", "Synthèse décisionnelle"),
     ("s02_concept_perimetre", "Concept, périmètre et hypothèses de départ"),
+    ("s03_points_critiques_lancement", "Points critiques à sécuriser avant lancement"),
     ("s03_hypotheses_chiffrees", "Dictionnaire unique des hypothèses chiffrées"),
     ("s04_demande_acces_marche", "Demande, accès au marché et zone utile"),
     ("s05_tendances_utiles", "Tendances marché utiles au projet"),
