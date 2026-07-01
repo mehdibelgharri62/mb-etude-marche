@@ -119,7 +119,6 @@ def construire_corps_email(
     generation_errors: list[str],
     pdf_ok: bool,
     pieces_jointes: list[str],
-    cout_api_estime: dict | None = None,
 ) -> str:
     statut = "RAPPORT PRÊT"
     if not pdf_ok:
@@ -131,33 +130,16 @@ def construire_corps_email(
 
     issues = (quality_report or {}).get("issues", [])
     if issues:
-        def format_issue(i):
-    if isinstance(i, dict):
-        titre = i.get("section_title") or i.get("section_id") or "Section non précisée"
-        severity = i.get("severity") or "info"
-        reason = i.get("reason") or i.get("message") or ""
-        return f"- {titre} [{severity}] : {reason}".strip()
-    return f"- {str(i)}"
-
-if issues:
-    lignes_issues = "\n".join(format_issue(i) for i in issues)
-else:
-    lignes_issues = "Aucun problème détecté."
-  
+        lignes_issues = "\n".join(
+            f"- {i.get('section_title', i.get('section_id', '?'))} "
+            f"[{i.get('severity', '?')}] : {i.get('reason', '')}"
+            for i in issues
+        )
     else:
         lignes_issues = "Aucun problème détecté." if pdf_ok else "—"
 
     lignes_erreurs = "\n".join(f"- {e}" for e in generation_errors) or "Aucune."
     lignes_pj = "\n".join(f"- {Path(p).name}" for p in pieces_jointes) or "Aucune."
-
-    if cout_api_estime:
-        cout_api_ligne = (
-            f"Coût API estimé : ~{cout_api_estime.get('cout_total_usd', 0):.3f} $ US\n"
-            f"Tokens entrée/sortie : {cout_api_estime.get('tokens_in', 0)} / {cout_api_estime.get('tokens_out', 0)}\n"
-            f"Requêtes recherche web : {cout_api_estime.get('requetes_recherche', 0)}"
-        )
-    else:
-        cout_api_ligne = "Coût API estimé : non disponible."
 
     return f"""Nouveau rapport généré — {project_name}
 
@@ -170,8 +152,6 @@ Tel      : {form_data.get('phone', 'Non renseigné')}
 Stade    : {form_data.get('stage', '')}
 Objectif : {form_data.get('main_goal', '')}
 Order ID : {order_id}
-
-{cout_api_ligne}
 
 Statut : {statut}
 
@@ -244,7 +224,6 @@ def generer_et_envoyer(form_data: dict):
     pdf_ok = False
     generation_errors: list[str] = []
     quality_report: dict | None = None
-    cout_api_estime: dict | None = None
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -264,15 +243,7 @@ def generer_et_envoyer(form_data: dict):
             sys.modules["generate_content_tmp"] = gc
             spec.loader.exec_module(gc)
 
-            content_result = gc.main(project_input, output_file=content_path)
-            if isinstance(content_result, dict):
-                cout_api_estime = content_result.get("_cout_api_estime")
-            if cout_api_estime is None and os.path.exists(content_path):
-                try:
-                    with open(content_path, "r", encoding="utf-8") as f:
-                        cout_api_estime = json.load(f).get("_cout_api_estime")
-                except Exception:
-                    cout_api_estime = None
+            gc.main(project_input, output_file=content_path)
             content_ok = True
             print("✅ Contenu généré")
         except Exception as e:
@@ -322,7 +293,6 @@ def generer_et_envoyer(form_data: dict):
             generation_errors=generation_errors,
             pdf_ok=pdf_ok,
             pieces_jointes=[pdf_path],
-            cout_api_estime=cout_api_estime,
         )
 
         # --- 4. Email envoyé dans TOUS les cas ---
@@ -437,12 +407,12 @@ async def success():
   <div class="card">
     <div class="icon">✅</div>
     <h1>Paiement confirmé</h1>
-    <p>Votre commande est confirmée.</p>
+    <p>Votre étude de marché est en cours de génération.</p>
     <div class="box">
-      MB Consulting vous recontactera <strong>sous 12h</strong> pour cadrer votre projet et ajuster l'angle de l'étude.<br><br>
-      Votre étude de marché personnalisée sera ensuite livrée par email <strong>sous 72h</strong>.
+      Vous recevrez votre rapport par email <strong>dans les 30 à 60 minutes</strong>.<br><br>
+      Pensez à vérifier vos spams si vous ne le voyez pas arriver.
     </div>
-    <p>Une question ? <strong>contact@mbconsulting-formation.fr</strong></p>
+    <p>Une question ? <strong>contact@mbconsulting.fr</strong></p>
   </div>
 </body>
 </html>"""
